@@ -66,12 +66,14 @@
   .columns {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
     gap: 12px;
   }
   .left {
     display: flex;
     flex-direction: column;
     gap: 12px;
+  }
+  .left .card:last-child {
+    flex: 1;
   }
 </style>

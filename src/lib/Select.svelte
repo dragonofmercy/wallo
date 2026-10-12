@@ -8,6 +8,17 @@
 
   const label = $derived(options.find((o) => o.value === value)?.label ?? "");
 
+  // The window clips anything outside it: open upward when the list does not fit below.
+  let up = $state(false);
+  function toggle() {
+    if (!open) {
+      const r = root.getBoundingClientRect();
+      const need = options.length * 32 + 16;
+      up = window.innerHeight - r.bottom < need && r.top > window.innerHeight - r.bottom;
+    }
+    open = !open;
+  }
+
   function pick(v: T) {
     value = v;
     open = false;
@@ -17,13 +28,13 @@
 <svelte:window onclick={(e) => open && !root.contains(e.target as Node) && (open = false)} onkeydown={(e) => e.key === "Escape" && (open = false)} />
 
 <div class="select" bind:this={root}>
-  <button type="button" class="field current" onclick={() => (open = !open)} aria-haspopup="listbox" aria-expanded={open}>
+  <button type="button" class="field current" onclick={toggle} aria-haspopup="listbox" aria-expanded={open}>
     {@render icon?.(value)}
     <span class="label">{label}</span>
     <span class="caret" class:open><Icon name="chevron" size={14} /></span>
   </button>
   {#if open}
-    <ul role="listbox">
+    <ul role="listbox" class:up>
       {#each options as o (o.value)}
         <li role="option" aria-selected={o.value === value}>
           <button type="button" class:active={o.value === value} onclick={() => pick(o.value)}>{@render icon?.(o.value)}<span>{o.label}</span></button>
@@ -67,6 +78,7 @@
     z-index: 20;
     left: 0;
     top: 38px;
+    max-width: calc(100vw - 32px);
     min-width: 100%;
     width: max-content;
     margin: 0;
@@ -76,6 +88,10 @@
     border: 1px solid var(--line2);
     border-radius: 10px;
     box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55);
+  }
+  ul.up {
+    top: auto;
+    bottom: 38px;
   }
   ul button {
     width: 100%;
