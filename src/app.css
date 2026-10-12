@@ -119,15 +119,14 @@ label {
 
 .btn.ghost {
   background: transparent;
-  border-color: transparent;
+  border-color: var(--line2);
   color: var(--muted);
 }
 
 .btn.ghost:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.04);
-  border-color: var(--line2);
+  border-color: var(--accent);
   color: var(--text);
-  box-shadow: none;
 }
 
 .btn.danger {
