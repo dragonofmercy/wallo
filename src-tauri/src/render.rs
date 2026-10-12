@@ -86,9 +86,19 @@ fn draw_visible(canvas: &mut RgbaImage, source: &RgbaImage, layer: (f64, f64, f6
     let crop = imageops::crop_imm(source, sx0, sy0, sx1 - sx0, sy1 - sy0).to_image();
     let (px, py) = (lx + sx0 as f64 * fx, ly + sy0 as f64 * fy);
     let (cx, cy) = (lx + lw / 2.0, ly + lh / 2.0);
-    let rotation = Projection::translate(cx as f32, cy as f32) * Projection::rotate(theta as f32) * Projection::translate(-cx as f32, -cy as f32);
+    // Warp only into the canvas part the rotated piece can reach (with room for the padding spill), not a full-canvas buffer per call.
+    let (sin, cos) = theta.sin_cos();
+    let (qw, qh, m) = ((sx1 - sx0) as f64 * fx, (sy1 - sy0) as f64 * fy, fx.max(fy).max(1.0) / 2.0 + 2.0);
+    let corners = [(px - m, py - m), (px + qw + m, py - m), (px - m, py + qh + m), (px + qw + m, py + qh + m)].map(|(x, y)| (cx + (x - cx) * cos - (y - cy) * sin, cy + (x - cx) * sin + (y - cy) * cos));
+    let bbox = corners.iter().fold((f64::MAX, f64::MAX, f64::MIN, f64::MIN), |r, &(x, y)| (r.0.min(x), r.1.min(y), r.2.max(x), r.3.max(y)));
     let (cw, ch) = canvas.dimensions();
-    let blank = || RgbaImage::from_pixel(cw, ch, CLEAR);
+    let (bx0, by0) = (bbox.0.floor().clamp(0.0, cw as f64) as u32, bbox.1.floor().clamp(0.0, ch as f64) as u32);
+    let (bx1, by1) = (bbox.2.ceil().clamp(0.0, cw as f64) as u32, bbox.3.ceil().clamp(0.0, ch as f64) as u32);
+    if bx1 <= bx0 || by1 <= by0 {
+        return;
+    }
+    let rotation = Projection::translate(cx as f32 - bx0 as f32, cy as f32 - by0 as f32) * Projection::rotate(theta as f32) * Projection::translate(-cx as f32, -cy as f32);
+    let blank = || RgbaImage::from_pixel(bx1 - bx0, by1 - by0, CLEAR);
     let layer_px = if fx <= 1.0 && fy <= 1.0 {
         let (pw, ph) = ((((sx1 - sx0) as f64 * fx).round() as u32).max(1), (((sy1 - sy0) as f64 * fy).round() as u32).max(1));
         let piece = if (pw, ph) == crop.dimensions() { crop } else { imageops::resize(&crop, pw, ph, filter) };
@@ -112,14 +122,15 @@ fn draw_visible(canvas: &mut RgbaImage, source: &RgbaImage, layer: (f64, f64, f6
             // The replicated padding spills up to half a source pixel past the layer edge: cut it off.
             let (x0, x1, y0, y1) = (lx.round(), (lx + lw).round(), ly.round(), (ly + lh).round());
             for (x, y, p) in layer_px.enumerate_pixels_mut() {
-                if (x as f64) < x0 || (x as f64) >= x1 || (y as f64) < y0 || (y as f64) >= y1 {
+                let (x, y) = ((x + bx0) as f64, (y + by0) as f64);
+                if x < x0 || x >= x1 || y < y0 || y >= y1 {
                     *p = CLEAR;
                 }
             }
         }
         layer_px
     };
-    imageops::overlay(canvas, &layer_px, 0, 0);
+    imageops::overlay(canvas, &layer_px, bx0 as i64, by0 as i64);
 }
 
 /// Rotates the layer clockwise by `theta` radians around its center and draws it on the canvas.
@@ -173,14 +184,17 @@ pub fn render_profile(profile: &Profile, monitors: &[Monitor], k: f64, filter: F
         Mode::Span => {
             let Some(bx) = monitors.iter().map(|m| m.x).min() else { return Vec::new() };
             let by = monitors.iter().map(|m| m.y).min().unwrap_or(0);
-            let bx1 = monitors.iter().map(|m| m.x + m.width as i32).max().unwrap_or(0);
-            let by1 = monitors.iter().map(|m| m.y + m.height as i32).max().unwrap_or(0);
-            let (canvas, error) = render_source(&profile.shared, ((bx1 - bx) as u32, (by1 - by) as u32), k, filter, load);
+            let at = |m: &Monitor| (((m.x - bx) as f64 * k).round() as u32, ((m.y - by) as f64 * k).round() as u32);
+            // Rounded slice origins plus rounded sizes can exceed the scaled bounding box by a pixel: size the canvas so every slice fits.
+            // The area is chosen so that `scaled(area, k)` gives that canvas back (|round(w / k) * k - w| <= k / 2); for k = 1 it is the bounding box.
+            let cw = monitors.iter().map(|m| at(m).0 + scaled(m.width, k)).max().unwrap_or(1);
+            let ch = monitors.iter().map(|m| at(m).1 + scaled(m.height, k)).max().unwrap_or(1);
+            let area = ((cw as f64 / k).round() as u32, (ch as f64 / k).round() as u32);
+            let (canvas, error) = render_source(&profile.shared, area, k, filter, load);
             monitors
                 .iter()
                 .map(|m| {
-                    let x = ((m.x - bx) as f64 * k).round() as u32;
-                    let y = ((m.y - by) as f64 * k).round() as u32;
+                    let (x, y) = at(m);
                     let image = imageops::crop_imm(&canvas, x, y, scaled(m.width, k), scaled(m.height, k)).to_image();
                     Rendered { id: m.id.clone(), image, error: error.clone() }
                 })
@@ -202,6 +216,7 @@ pub fn render_profile(profile: &Profile, monitors: &[Monitor], k: f64, filter: F
 }
 
 fn render_source(src: &Source, area: (u32, u32), k: f64, filter: FilterType, load: &Loader) -> (RgbaImage, Option<String>) {
+    let src = &src.clamped();
     let black = || RgbaImage::from_pixel(scaled(area.0, k), scaled(area.1, k), BLACK);
     let Some(path) = &src.image_path else { return (black(), None) };
     match load(path) {
@@ -514,5 +529,47 @@ mod tests {
         assert_eq!(out[0].image.dimensions(), (4, 2));
         assert_eq!(out[1].image.dimensions(), (4, 2));
         assert_eq!(*out[1].image.get_pixel(0, 0), BLUE);
+    }
+
+    #[test]
+    fn span_preview_slices_keep_their_width() {
+        let profile = Profile {
+            mode: Mode::Span,
+            shared: with_image("a.png", Sizing::Stretch),
+            ..Profile::default()
+        };
+        let monitors = [mon("left", 0, 0, 1920, 1080), mon("right", 1920, 0, 1920, 1080)];
+        let k = 801.0 / 3840.0;
+        let out = render_profile(&profile, &monitors, k, FilterType::Triangle, &ok_loader(halves()));
+        assert_eq!(out[0].image.dimensions(), (scaled(1920, k), scaled(1080, k)));
+        assert_eq!(out[1].image.dimensions(), out[0].image.dimensions());
+        assert_eq!(out[0].image.width(), 401);
+    }
+
+    #[test]
+    fn wide_tile_upscale_is_fast() {
+        let img = RgbaImage::from_pixel(4000, 1, RED);
+        let start = std::time::Instant::now();
+        let out = render_area(&img, (4000, 1), &Source { scale: 150.0, ..src(Sizing::Tile) }, (1920, 1080), 1.0, FilterType::Lanczos3);
+        let elapsed = start.elapsed();
+        assert!(is_red(out.get_pixel(960, 540)));
+        assert!(elapsed.as_secs_f64() < 3.0, "took {elapsed:?}");
+    }
+
+    #[test]
+    fn out_of_range_blur_is_clamped() {
+        let profile = Profile {
+            mode: Mode::Same,
+            shared: Source {
+                blur: 1e9,
+                ..with_image("a.png", Sizing::Stretch)
+            },
+            ..Profile::default()
+        };
+        let start = std::time::Instant::now();
+        let out = render_profile(&profile, &[mon("a", 0, 0, 200, 100)], 1.0, FilterType::Nearest, &ok_loader(halves()));
+        let elapsed = start.elapsed();
+        assert_eq!(out[0].image.dimensions(), (200, 100));
+        assert!(elapsed.as_secs_f64() < 3.0, "took {elapsed:?}");
     }
 }
