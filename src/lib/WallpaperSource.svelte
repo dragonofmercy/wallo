@@ -46,14 +46,14 @@
 <label class="chk stretch"><input type="checkbox" bind:checked={app.source.noUpscale} /><span class="box"><svg viewBox="0 0 12 12"><path d="M2.5 6.5l2.5 2.5 4.5-5" /></svg></span>Don't stretch smaller images</label>
 <div class="image">
   <button type="button" class="btn" onclick={loadImage}><Icon name="folder" />Load Image</button>
-  <div class="meta">
-    {#if app.source.imagePath}
-      <div class="name" title={app.source.imagePath}>{file.name}</div>
-      <div class="dir">{file.dir}</div>
+  <!-- Always exactly two single lines: a varying height here would resize the monitor preview above. -->
+  <div class="meta" title={app.sourceError ?? app.source.imagePath ?? ""}>
+    <div class="name" class:muted={!app.source.imagePath}>{app.source.imagePath ? file.name : "No image"}</div>
+    {#if app.sourceError}
+      <div class="line error">{app.sourceError}</div>
     {:else}
-      <div class="dir">No image</div>
+      <div class="line dir">{file.dir}</div>
     {/if}
-    {#if app.sourceError}<div class="error">{app.sourceError}</div>{/if}
   </div>
 </div>
 
@@ -73,20 +73,28 @@
     flex-direction: column;
     gap: 3px;
   }
-  .name {
-    font-weight: 600;
+  .name,
+  .line {
+    height: 17px;
+    line-height: 17px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .dir {
-    font-size: 12px;
+  .name {
+    font-weight: 600;
+  }
+  .muted {
+    font-weight: 500;
     color: var(--dim);
-    line-height: 1.4;
-    word-break: break-all;
+  }
+  .line {
+    font-size: 12px;
+  }
+  .dir {
+    color: var(--dim);
   }
   .error {
-    font-size: 12px;
     color: var(--danger);
   }
   .ico {
