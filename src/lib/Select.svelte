@@ -2,7 +2,7 @@
   import type { Snippet } from "svelte";
   import Icon from "./Icon.svelte";
 
-  let { value = $bindable(), options, icon }: { value: T; options: { value: T; label: string }[]; icon?: Snippet<[T]> } = $props();
+  let { value = $bindable(), options, icon, label: name }: { value: T; options: { value: T; label: string }[]; icon?: Snippet<[T]>; label?: string } = $props();
   let open = $state(false);
   let root: HTMLDivElement;
 
@@ -28,7 +28,7 @@
 <svelte:window onclick={(e) => open && !root.contains(e.target as Node) && (open = false)} onkeydown={(e) => e.key === "Escape" && (open = false)} />
 
 <div class="select" bind:this={root}>
-  <button type="button" class="field current" onclick={toggle} aria-haspopup="listbox" aria-expanded={open}>
+  <button type="button" class="field current" onclick={toggle} aria-label={name} aria-haspopup="listbox" aria-expanded={open}>
     {@render icon?.(value)}
     <span class="label">{label}</span>
     <span class="caret" class:open><Icon name="chevron" size={14} /></span>
