@@ -29,8 +29,9 @@ Wallo does what the Windows settings can't: put a different image on each screen
 
 ## Where things are stored
 
-- Profiles: `%APPDATA%\wallo\profiles.json`
-- Generated wallpapers: `%APPDATA%\wallo\rendered\`
+- Profiles: `%APPDATA%\com.wallo.app\profiles.json`
+- Generated wallpapers: `%APPDATA%\com.wallo.app\rendered\`
+- Window position: `%APPDATA%\com.wallo.app\.window-state.json`
 
 Your original images are never modified.
 

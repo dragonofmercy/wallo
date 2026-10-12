@@ -66,8 +66,9 @@ pub(crate) fn lock_apply(lock: &Mutex<()>) -> Option<MutexGuard<'_, ()>> {
     }
 }
 
+/// Same folder as Tauri's app config dir (named after the bundle identifier), where the window-state plugin writes.
 pub(crate) fn data_dir() -> PathBuf {
-    PathBuf::from(std::env::var_os("APPDATA").unwrap_or_default()).join("wallo")
+    PathBuf::from(std::env::var_os("APPDATA").unwrap_or_default()).join("com.wallo.app")
 }
 
 pub(crate) fn profiles_path() -> PathBuf {
