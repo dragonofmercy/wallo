@@ -1,5 +1,3 @@
-#![allow(dead_code)] // ponytail: unused until Task 7 wires the module; remove then
-
 use crate::monitors::Monitor;
 use crate::profile::{Mode, Profile, Sizing, Source};
 use image::imageops::{self, FilterType};

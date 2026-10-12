@@ -1,5 +1,3 @@
-#![allow(dead_code)] // ponytail: unused until Task 7 wires the module; remove then
-
 use crate::monitors::desktop_wallpaper;
 use image::{DynamicImage, RgbaImage};
 use std::fs;

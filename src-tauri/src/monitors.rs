@@ -1,5 +1,3 @@
-#![allow(dead_code)] // ponytail: unused until Task 7 wires the module; remove then
-
 use serde::{Deserialize, Serialize};
 use windows::core::PCWSTR;
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoTaskMemFree, CLSCTX_ALL, COINIT_MULTITHREADED};

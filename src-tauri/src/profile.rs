@@ -1,5 +1,3 @@
-#![allow(dead_code)] // ponytail: unused until Task 7 wires the module; remove then
-
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
