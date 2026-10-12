@@ -46,7 +46,7 @@
 <label class="chk stretch"><span>Don't stretch smaller images</span><input type="checkbox" bind:checked={app.source.noUpscale} /><span class="tgl"></span></label>
 <div class="image">
   <button type="button" class="btn" onclick={loadImage}><Icon name="folder" />Load Image</button>
-  <div class="meta selectable">
+  <div class="meta">
     {#if app.source.imagePath}
       <div class="name" title={app.source.imagePath}>{file.name}</div>
       <div class="dir">{file.dir}</div>
