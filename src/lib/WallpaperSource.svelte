@@ -46,12 +46,12 @@
 <label class="chk stretch"><input type="checkbox" bind:checked={app.source.noUpscale} /><span class="box"><svg viewBox="0 0 12 12"><path d="M2.5 6.5l2.5 2.5 4.5-5" /></svg></span>Don't stretch smaller images</label>
 <div class="image">
   <button type="button" class="btn" onclick={loadImage}><Icon name="folder" />Load Image</button>
-  <!-- Always exactly two single lines: a varying height here would resize the monitor preview above. -->
+  <!-- Fixed height (two single lines): a varying height here would resize the monitor preview above. -->
   <div class="meta" title={app.sourceError ?? app.source.imagePath ?? ""}>
     <div class="name" class:muted={!app.source.imagePath}>{app.source.imagePath ? file.name : "No image"}</div>
     {#if app.sourceError}
       <div class="line error">{app.sourceError}</div>
-    {:else}
+    {:else if app.source.imagePath}
       <div class="line dir">{file.dir}</div>
     {/if}
   </div>
@@ -64,13 +64,15 @@
   .image {
     display: flex;
     gap: 12px;
-    align-items: flex-start;
+    align-items: center;
   }
   .meta {
     flex: 1;
     min-width: 0;
+    height: 37px;
     display: flex;
     flex-direction: column;
+    justify-content: center;
     gap: 3px;
   }
   .name,
