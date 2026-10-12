@@ -43,7 +43,7 @@
 
 <div class="lbl">Sizing</div>
 <Select bind:value={app.source.sizing} options={SIZINGS} icon={sizingIcon} />
-<label class="chk stretch"><span>Don't stretch smaller images</span><input type="checkbox" bind:checked={app.source.noUpscale} /><span class="tgl"></span></label>
+<label class="chk stretch"><input type="checkbox" bind:checked={app.source.noUpscale} /><span class="tgl"></span>Don't stretch smaller images</label>
 <div class="image">
   <button type="button" class="btn" onclick={loadImage}><Icon name="folder" />Load Image</button>
   <div class="meta">
@@ -59,8 +59,6 @@
 
 <style>
   .stretch {
-    width: 100%;
-    justify-content: space-between;
     margin: 14px 0;
   }
   .image {
