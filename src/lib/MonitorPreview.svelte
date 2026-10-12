@@ -22,6 +22,8 @@
     return `left:${b.left + (m.x - b.x0) * b.f}px;top:${b.top + (m.y - b.y0) * b.f}px;width:${m.width * b.f}px;height:${m.height * b.f}px`;
   }
 
+  const selected = (m: Monitor) => app.profile.mode !== "perMonitor" || m.id === app.selectedMonitorId;
+
   let seq = 0;
   $effect(() => {
     const profile = $state.snapshot(app.profile) as Profile;
@@ -44,9 +46,10 @@
 <div class="preview" bind:clientWidth={width} bind:clientHeight={height}>
   {#if width > 0}
     {#each app.monitors as m (m.id)}
-      <button class="monitor" class:selected={app.profile.mode !== "perMonitor" || m.id === app.selectedMonitorId} style={box(m)} onclick={() => (app.selectedMonitorId = m.id)}>
+      <button class="monitor" class:selected={selected(m)} style={box(m)} onclick={() => (app.selectedMonitorId = m.id)}>
         {#if app.previews[m.id]}<img src={app.previews[m.id].dataUrl} alt="" />{/if}
-        <span>{m.number}</span>
+        <span class="num">{m.number}</span>
+        {#if selected(m)}<span class="badge">{m.width} x {m.height}</span>{/if}
       </button>
     {/each}
   {/if}
@@ -55,39 +58,64 @@
 <style>
   .preview {
     position: relative;
-    height: 190px;
-    flex-shrink: 0;
-    background: #060e1a;
-    border: 1px solid var(--border);
-    border-radius: 10px;
+    flex: 1;
+    min-height: 170px;
+    background: #050d19;
+    border: 1px solid var(--line);
+    border-radius: 12px;
     overflow: hidden;
+    box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.6);
   }
   .monitor {
     position: absolute;
     padding: 0;
     border: 2px solid #2a3b52;
-    border-radius: 2px;
+    border-radius: 4px;
     background: #000;
     overflow: hidden;
+    cursor: pointer;
+    transition:
+      border-color 0.15s,
+      box-shadow 0.15s;
+  }
+  .monitor:hover {
+    border-color: var(--line2);
   }
   .monitor.selected {
     border-color: var(--cyan);
-    box-shadow: 0 0 10px rgba(34, 211, 238, 0.35);
+    box-shadow:
+      0 0 0 1px rgba(34, 211, 238, 0.35),
+      0 0 22px rgba(34, 211, 238, 0.35);
   }
   img {
     width: 100%;
     height: 100%;
     display: block;
   }
-  span {
+  .num {
     position: absolute;
-    left: 8px;
+    left: 10px;
     top: 50%;
     transform: translateY(-50%);
-    font-family: Orbitron, sans-serif;
-    font-size: 44px;
+    font:
+      700 40px Orbitron,
+      sans-serif;
     color: #fff;
-    text-shadow: 0 0 6px #000;
+    text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+    pointer-events: none;
+  }
+  .badge {
+    position: absolute;
+    right: 6px;
+    top: 6px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font:
+      600 10px Inter,
+      sans-serif;
+    color: #cffafe;
+    background: rgba(8, 51, 68, 0.8);
+    border: 1px solid rgba(34, 211, 238, 0.4);
     pointer-events: none;
   }
 </style>

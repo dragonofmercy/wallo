@@ -11,7 +11,7 @@
 
 <div class="modes">
   {#each MODES as m (m.value)}
-    <label><input type="radio" name="mode" value={m.value} bind:group={app.profile.mode} /> {m.label}</label>
+    <label class="chk radio"><input type="radio" name="mode" value={m.value} bind:group={app.profile.mode} /><span class="box"></span>{m.label}</label>
   {/each}
 </div>
 
@@ -19,6 +19,6 @@
   .modes {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 9px;
   }
 </style>

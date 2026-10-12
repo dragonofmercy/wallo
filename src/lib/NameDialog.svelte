@@ -20,22 +20,23 @@
   <form onsubmit={submit}>
     <h2>{title}</h2>
     <!-- svelte-ignore a11y_autofocus -->
-    <input bind:value={name} autofocus />
+    <input class="field" bind:value={name} autofocus />
     <p class="error">{error ?? ""}</p>
     <div class="buttons">
-      <button type="submit" class="primary" disabled={!!error}>OK</button>
-      <button type="button" onclick={oncancel}>Cancel</button>
+      <button type="button" class="btn ghost" onclick={oncancel}>Cancel</button>
+      <button type="submit" class="btn primary" disabled={!!error}>OK</button>
     </div>
   </form>
 </dialog>
 
 <style>
   dialog {
-    background: var(--bg1);
+    background: #0d1f38;
     color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
+    border: 1px solid var(--line2);
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
     width: 320px;
   }
   dialog::backdrop {
@@ -43,7 +44,6 @@
   }
   input {
     width: 100%;
-    box-sizing: border-box;
   }
   .error {
     color: var(--danger);

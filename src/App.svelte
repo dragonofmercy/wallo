@@ -24,12 +24,11 @@
   {#if app.banner}
     <div class="banner {app.banner.kind}">
       <span>{app.banner.text}</span>
-      <button onclick={() => (app.banner = null)}>Dismiss</button>
+      <button type="button" class="btn ghost" onclick={() => (app.banner = null)}>Dismiss</button>
     </div>
   {/if}
   {#if ready}
-    <section class="card">
-      <h2>Wallpaper Profile</h2>
+    <section class="card profile">
       <ProfileBar />
     </section>
     <MonitorPreview />
@@ -39,7 +38,7 @@
           <h2>Background Mode</h2>
           <BackgroundMode />
         </section>
-        <section class="card grow">
+        <section class="card">
           <h2>Wallpaper Source</h2>
           <WallpaperSource />
         </section>
@@ -55,28 +54,24 @@
 
 <style>
   main {
-    box-sizing: border-box;
     height: 100%;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding: 12px;
+    gap: 12px;
+    padding: 14px;
+  }
+  .profile {
+    padding: 12px 14px;
   }
   .columns {
-    flex: 1;
-    min-height: 0;
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 12px;
   }
   .left {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    min-height: 0;
-  }
-  .grow {
-    flex: 1;
-    min-height: 0;
+    gap: 12px;
   }
 </style>
