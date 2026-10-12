@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import Adjustments from "./lib/Adjustments.svelte";
   import BackgroundMode from "./lib/BackgroundMode.svelte";
+  import BusyOverlay from "./lib/BusyOverlay.svelte";
   import Footer from "./lib/Footer.svelte";
   import MonitorPreview from "./lib/MonitorPreview.svelte";
   import ProfileBar from "./lib/ProfileBar.svelte";
@@ -50,6 +51,7 @@
     </div>
     <Footer />
   {/if}
+  {#if app.busy}<BusyOverlay />{/if}
 </main>
 
 <style>
