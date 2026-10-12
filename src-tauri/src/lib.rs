@@ -1,6 +1,7 @@
 mod monitors;
 mod profile;
 mod render;
+mod wallpaper;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
