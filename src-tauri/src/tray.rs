@@ -1,5 +1,5 @@
 use crate::commands::{self, ApplyLock};
-use crate::profile;
+use crate::profile::{self, Profiles};
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, WebviewWindowBuilder, Wry};
@@ -9,10 +9,15 @@ const TRAY_ID: &str = "main";
 const PROFILE_ITEM: &str = "profile:";
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
+    let loaded = profile::load(&commands::profiles_path());
+    // load() moves a corrupt file to .bak: the window loading after us would not see the warning.
+    if let Some(warning) = loaded.warning {
+        error(app, warning);
+    }
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(app.default_window_icon().cloned().expect("bundle has an icon"))
         .tooltip("Wallo")
-        .menu(&menu(app)?)
+        .menu(&menu(app, &loaded.profiles)?)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id().as_ref() {
             "open" => show_window(app),
@@ -37,17 +42,13 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// Profiles from disk, the last applied one checked.
-fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
-    let loaded = profile::load(&commands::profiles_path());
-    // load() moves a corrupt file to .bak: the window loading after us would not see the warning.
-    if let Some(warning) = loaded.warning {
-        error(app, warning);
-    }
+/// One item per profile, the last applied one checked.
+fn menu(app: &AppHandle, profiles: &Profiles) -> tauri::Result<Menu<Wry>> {
     let menu = Menu::new(app)?;
-    for p in &loaded.profiles.profiles {
-        let checked = loaded.profiles.last_selected.as_deref() == Some(p.name.as_str());
-        menu.append(&CheckMenuItem::with_id(app, format!("{PROFILE_ITEM}{}", p.name), &p.name, true, checked, None::<&str>)?)?;
+    for p in &profiles.profiles {
+        let checked = profiles.last_selected.as_deref() == Some(p.name.as_str());
+        // A single & would underline the next letter as a mnemonic; the id keeps the raw name.
+        menu.append(&CheckMenuItem::with_id(app, format!("{PROFILE_ITEM}{}", p.name), p.name.replace('&', "&&"), true, checked, None::<&str>)?)?;
     }
     menu.append(&PredefinedMenuItem::separator(app)?)?;
     menu.append(&MenuItem::with_id(app, "open", "Open Wallo", true, None::<&str>)?)?;
@@ -57,7 +58,8 @@ fn menu(app: &AppHandle) -> tauri::Result<Menu<Wry>> {
 
 /// Rebuilds the menu from profiles.json (check mark = lastSelected).
 pub fn refresh_menu(app: &AppHandle) {
-    if let (Some(tray), Ok(menu)) = (app.tray_by_id(TRAY_ID), menu(app)) {
+    let profiles = profile::load(&commands::profiles_path()).profiles;
+    if let (Some(tray), Ok(menu)) = (app.tray_by_id(TRAY_ID), menu(app, &profiles)) {
         let _ = tray.set_menu(Some(menu));
     }
 }
@@ -94,8 +96,6 @@ fn apply_from_tray(app: &AppHandle, name: String) {
             let result = if let Some(warning) = loaded.warning {
                 // Corrupt file was just moved to .bak: applying would save defaults over it.
                 Err(warning)
-            } else if loaded.save_blocked {
-                Err("profiles.json could not be read, fix or remove it before applying".to_string())
             } else {
                 let mut profiles = loaded.profiles;
                 profiles.last_selected = Some(name);

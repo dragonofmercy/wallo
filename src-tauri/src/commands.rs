@@ -139,11 +139,13 @@ pub async fn render_preview(cache: State<'_, ImageCache>, profile: Profile, moni
     .await
 }
 
-/// Saves `profiles`, then renders and applies the selected one. Blocking; the caller holds the apply lock.
+/// Renders and applies the selected profile, then saves `profiles` (a failed apply saves nothing). Blocking; the caller holds the apply lock.
 pub(crate) fn apply_now(profiles: &Profiles) -> Result<(), String> {
     let selected = profiles.selected().ok_or("No profile selected")?;
-    profile::save(&profiles_path(), profiles).map_err(|e| format!("Cannot save profiles: {e}"))?;
     let monitors = monitors::list()?;
+    if monitors.is_empty() {
+        return Err("No monitor detected".into());
+    }
     // Same mode renders one file on every monitor: decode each path once.
     let decoded: RefCell<HashMap<PathBuf, Cached>> = RefCell::default();
     let load = |p: &Path| -> Result<Cached, String> {
@@ -161,13 +163,14 @@ pub(crate) fn apply_now(profiles: &Profiles) -> Result<(), String> {
         return Err(error);
     }
     let images: Vec<(String, RgbaImage)> = rendered.into_iter().map(|r| (r.id, r.image)).collect();
-    wallpaper::apply(&data_dir().join("rendered"), images)
+    wallpaper::apply(&data_dir().join("rendered"), images)?;
+    profile::save(&profiles_path(), profiles).map_err(|e| format!("Cannot save profiles: {e}"))
 }
 
 #[tauri::command]
 pub async fn apply(app: AppHandle, blocked: State<'_, SaveBlocked>, lock: State<'_, ApplyLock>, profiles: Profiles) -> Result<(), String> {
     if blocked.0.load(Ordering::SeqCst) {
-        return Err("profiles.json could not be read at startup, close and reopen the Wallo window before applying to avoid overwriting it".into());
+        return Err("profiles.json could not be read, close and reopen the Wallo window before applying to avoid overwriting it".into());
     }
     let lock = lock.0.clone();
     blocking(move || {
