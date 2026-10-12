@@ -28,6 +28,7 @@ base64 = "0.23.1"
 imageproc = "0.25.1"
 image = { version = "0.25.6", default-features = false, features = ["png", "jpeg", "bmp", "webp", "gif"] }
 windows = { version = "0.61.3", features = ["Win32_Foundation", "Win32_System_Com", "Win32_UI_Shell"] }
+tauri-plugin-window-state = "2.5.0"
 
 # Image decode/resize is 10-50x slower unoptimized: optimize even in dev builds.
 [profile.dev]
