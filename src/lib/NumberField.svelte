@@ -22,16 +22,36 @@
     input.setSelectionRange(pos, pos);
   }
 
-  function commit(text: string) {
-    const v = parseFloat(text.replace(",", "."));
-    // Invalid input keeps the previous value; reassigning forces the field to redisplay it.
-    value = Number.isFinite(v) ? clamp(v) : current();
+  // Parses typed or pasted text; returns NaN when it is not a plain number (letters, exponents, several signs...).
+  function parse(text: string) {
+    const t = text.replace(/\s/g, "");
+    if (!/^[+-]?[\d.,]*$/.test(t) || !/\d/.test(t)) return NaN;
+    // "1,000" / "12,500" (comma + exactly 3 digits, no ".") is a thousands separator: it commits 1000 / 12500.
+    // Otherwise a single comma with no "." is the decimal separator ("1,5" -> 1.5); with a "." present commas are thousands separators.
+    const n = /^[+-]?\d{1,3}(,\d{3})+$/.test(t) || t.includes(".") ? t.replace(/,/g, "") : t.replace(",", ".");
+    return Number(n);
+  }
+
+  function commit(input: HTMLInputElement) {
+    const v = parse(input.value);
+    // Invalid input keeps the previous value.
+    value = Number.isFinite(v) ? clamp(Number(v.toFixed(decimals))) : current();
+    // Svelte skips the DOM write when the bound value did not change, so always rewrite the text (rejected or clamped-to-same input).
+    input.value = current().toFixed(decimals);
   }
 </script>
 
 <div class="lbl">{label}</div>
 <div class="field num" class:off={disabled}>
-  <input type="text" inputmode="decimal" aria-label={label} {disabled} value={current().toFixed(decimals)} oninput={(e) => sanitize(e.currentTarget)} onchange={(e) => commit(e.currentTarget.value)} />
+  <input
+    type="text"
+    inputmode="decimal"
+    aria-label={label}
+    {disabled}
+    value={current().toFixed(decimals)}
+    oninput={(e) => !/^insertFrom(Paste|Drop)$/.test((e as unknown as InputEvent).inputType) && sanitize(e.currentTarget)}
+    onchange={(e) => commit(e.currentTarget)}
+  />
   {#if unit}<span class="unit">{unit}</span>{/if}
   <div class="step">
     <button type="button" tabindex="-1" aria-label="Increase {label}" {disabled} onclick={() => (value = clamp(current() + step))}>
