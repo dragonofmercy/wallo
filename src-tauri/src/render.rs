@@ -61,8 +61,10 @@ pub fn render_area(img: &RgbaImage, native: (u32, u32), src: &Source, area: (u32
         }
     }
 
-    if src.blur > 0.0 {
-        canvas = imageops::fast_blur(&canvas, src.blur * k as f32);
+    let sigma = src.blur * k as f32;
+    if sigma >= 0.3 {
+        // fast_blur has a 1 px minimum radius: too blurry on a small preview canvas, so previews use the exact gaussian.
+        canvas = if k < 1.0 { imageops::blur(&canvas, sigma) } else { imageops::fast_blur(&canvas, sigma) };
     }
     canvas
 }

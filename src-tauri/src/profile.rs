@@ -91,20 +91,39 @@ impl Profiles {
     }
 }
 
-/// Never fails: a missing file gives the default set, a corrupt one is moved to `.json.bak` and reported as a warning.
-pub fn load(path: &Path) -> (Profiles, Option<String>) {
-    let text = match fs::read_to_string(path) {
-        Ok(text) => text,
-        Err(e) if e.kind() == io::ErrorKind::NotFound => return (Profiles::default(), None),
-        Err(e) => return (Profiles::default(), Some(format!("Cannot read {}: {e}", path.display()))),
+pub struct Loaded {
+    pub profiles: Profiles,
+    pub warning: Option<String>,
+    /// The file exists but could not be read: saving would overwrite it.
+    pub save_blocked: bool,
+}
+
+/// Never fails: a missing file gives the default set, a corrupt one is moved to `.json.bak` and reported as a warning,
+/// an unreadable one gives the default set with `save_blocked` set.
+pub fn load(path: &Path) -> Loaded {
+    let fresh = |warning, save_blocked| Loaded {
+        profiles: Profiles::default(),
+        warning,
+        save_blocked,
     };
-    match serde_json::from_str::<Profiles>(&text) {
-        Ok(p) if !p.profiles.is_empty() => (p, None),
-        Ok(_) => (Profiles::default(), None),
+    let bytes = match fs::read(path) {
+        Ok(bytes) => bytes,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return fresh(None, false),
+        Err(e) => {
+            let msg = format!("Cannot read {} ({e}). Profiles are not saved until Wallo is restarted, to avoid overwriting the file.", path.display());
+            return fresh(Some(msg), true);
+        }
+    };
+    match serde_json::from_slice::<Profiles>(&bytes) {
+        Ok(p) if !p.profiles.is_empty() => Loaded { profiles: p, warning: None, save_blocked: false },
+        Ok(_) => fresh(None, false),
         Err(e) => {
             let bak = path.with_extension("json.bak");
-            let _ = fs::rename(path, &bak);
-            (Profiles::default(), Some(format!("profiles.json was corrupt ({e}), moved to {}", bak.display())))
+            let moved = match fs::rename(path, &bak) {
+                Ok(()) => format!("moved to {}", bak.display()),
+                Err(re) => format!("could not be moved to {} ({re}) and will be overwritten", bak.display()),
+            };
+            fresh(Some(format!("profiles.json was corrupt ({e}), {moved}")), false)
         }
     }
 }
@@ -134,7 +153,7 @@ mod tests {
 
     #[test]
     fn missing_file_gives_default_without_warning() {
-        let (p, warning) = load(&tmp("missing"));
+        let Loaded { profiles: p, warning, .. } = load(&tmp("missing"));
         assert_eq!(p, Profiles::default());
         assert_eq!(p.selected().unwrap().name, "Default");
         assert!(warning.is_none());
@@ -155,7 +174,7 @@ mod tests {
             profiles: vec![profile],
         };
         save(&path, &profiles).unwrap();
-        let (loaded, warning) = load(&path);
+        let Loaded { profiles: loaded, warning, .. } = load(&path);
         assert_eq!(loaded, profiles);
         assert!(warning.is_none());
         assert!(!path.with_extension("json.tmp").exists());
@@ -165,18 +184,40 @@ mod tests {
     fn corrupt_file_is_backed_up_and_replaced_by_default() {
         let path = tmp("corrupt");
         fs::write(&path, "{ not json").unwrap();
-        let (p, warning) = load(&path);
+        let Loaded { profiles: p, warning, save_blocked } = load(&path);
         assert_eq!(p, Profiles::default());
         assert!(warning.is_some());
+        assert!(!save_blocked);
         assert!(path.with_extension("json.bak").exists());
         assert!(!path.exists());
+    }
+
+    #[test]
+    fn invalid_utf8_is_backed_up() {
+        let path = tmp("utf8");
+        fs::write(&path, [0xff, 0xfe, 0xfd]).unwrap();
+        let l = load(&path);
+        assert_eq!(l.profiles, Profiles::default());
+        assert!(l.warning.unwrap().contains("moved to"));
+        assert!(!l.save_blocked);
+        assert!(path.with_extension("json.bak").exists());
+    }
+
+    #[test]
+    fn unreadable_file_blocks_saving() {
+        let path = tmp("unreadable");
+        fs::create_dir(&path).unwrap();
+        let l = load(&path);
+        assert!(l.save_blocked);
+        assert!(l.warning.is_some());
+        assert!(path.is_dir());
     }
 
     #[test]
     fn missing_fields_take_defaults() {
         let path = tmp("partial");
         fs::write(&path, r#"{"profiles":[{"name":"A"}]}"#).unwrap();
-        let (p, _) = load(&path);
+        let p = load(&path).profiles;
         assert_eq!(p.profiles[0].mode, Mode::PerMonitor);
         assert_eq!(p.profiles[0].shared.scale, 100.0);
         assert_eq!(p.profiles[0].shared.sizing, Sizing::FitBestClip);
@@ -186,7 +227,7 @@ mod tests {
     fn empty_profile_list_gives_default() {
         let path = tmp("empty");
         fs::write(&path, r#"{"profiles":[]}"#).unwrap();
-        assert_eq!(load(&path).0, Profiles::default());
+        assert_eq!(load(&path).profiles, Profiles::default());
     }
 
     #[test]
