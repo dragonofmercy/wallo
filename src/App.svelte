@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import BackgroundMode from "./lib/BackgroundMode.svelte";
+  import MonitorPreview from "./lib/MonitorPreview.svelte";
   import ProfileBar from "./lib/ProfileBar.svelte";
   import { app } from "./lib/state.svelte";
 
@@ -27,12 +29,12 @@
       <h2>Wallpaper Profile</h2>
       <ProfileBar />
     </section>
-    <section class="preview"><!-- MonitorPreview (Task 10) --></section>
+    <MonitorPreview />
     <div class="columns">
       <div class="left">
         <section class="card">
           <h2>Background Mode</h2>
-          <!-- BackgroundMode (Task 10) -->
+          <BackgroundMode />
         </section>
         <section class="card grow">
           <h2>Wallpaper Source</h2>
@@ -56,10 +58,6 @@
     flex-direction: column;
     gap: 10px;
     padding: 12px;
-  }
-  .preview {
-    height: 190px;
-    flex-shrink: 0;
   }
   .columns {
     flex: 1;
