@@ -164,7 +164,7 @@ pub(crate) fn apply_now(profiles: &Profiles) -> Result<(), String> {
     }
     let images: Vec<(String, RgbaImage)> = rendered.into_iter().map(|r| (r.id, r.image)).collect();
     wallpaper::apply(&data_dir().join("rendered"), images)?;
-    profile::save(&profiles_path(), profiles).map_err(|e| format!("Cannot save profiles: {e}"))
+    profile::save(&profiles_path(), profiles).map_err(|e| format!("Wallpapers applied, but profiles could not be saved: {e}"))
 }
 
 #[tauri::command]
@@ -202,7 +202,11 @@ pub fn get_autostart() -> Result<bool, String> {
 #[tauri::command]
 pub fn set_autostart(enabled: bool) -> Result<(), String> {
     let launch = autolaunch()?;
-    if enabled { launch.enable() } else { launch.disable() }.map_err(|e| e.to_string())
+    if enabled { launch.enable() } else { launch.disable() }.map_err(|e| e.to_string())?;
+    if !enabled && launch.is_enabled().map_err(|e| e.to_string())? {
+        return Err("Wallo is still started for all users (registry HKLM); remove that entry as administrator".into());
+    }
+    Ok(())
 }
 
 #[cfg(test)]

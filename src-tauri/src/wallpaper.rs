@@ -53,10 +53,14 @@ fn set(images: &[(String, RgbaImage)], written: &[PathBuf]) -> Result<(), String
         let previous: Vec<Option<HSTRING>> = ids
             .iter()
             .map(|id| {
-                dw.GetWallpaper(id).ok().map(|p| {
+                dw.GetWallpaper(id).ok().and_then(|p| {
+                    // A null PWSTR means no previous wallpaper; to_hstring would call wcslen(NULL).
+                    if p.is_null() {
+                        return None;
+                    }
                     let s = p.to_hstring();
                     CoTaskMemFree(Some(p.0 as _));
-                    s
+                    Some(s)
                 })
             })
             .collect();
