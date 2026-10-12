@@ -59,6 +59,7 @@
 
 <style>
   .stretch {
+    width: 100%;
     justify-content: space-between;
     margin: 14px 0;
   }

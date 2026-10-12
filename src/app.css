@@ -177,6 +177,7 @@ input.field {
   display: flex;
   align-items: center;
   gap: 10px;
+  width: fit-content;
   cursor: pointer;
   font-weight: 500;
 }
