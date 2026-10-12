@@ -24,7 +24,7 @@
 <main>
   {#if app.banner}
     <div class="banner {app.banner.kind}">
-      <span>{app.banner.text}</span>
+      <span class="selectable">{app.banner.text}</span>
       <button type="button" class="btn ghost" onclick={() => (app.banner = null)}>Dismiss</button>
     </div>
   {/if}

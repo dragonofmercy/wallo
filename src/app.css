@@ -56,8 +56,16 @@ h2,
   padding: 14px 16px;
 }
 
-label {
+/* Desktop app feel: no text selection, except in fields and in text worth copying (paths, errors). */
+body {
   user-select: none;
+  cursor: default;
+}
+
+input,
+textarea,
+.selectable {
+  user-select: text;
 }
 
 .lbl {
