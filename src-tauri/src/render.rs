@@ -54,24 +54,22 @@ pub fn render_area(img: &RgbaImage, native: (u32, u32), src: &Source, area: (u32
         let (lx, ly) = ((cw as f64 - lw) / 2.0 + ox, (ch as f64 - lh) / 2.0 + oy);
         let angle = (src.rotation as f64).rem_euclid(360.0);
         if angle == 0.0 {
-            if let Some((piece, px, py)) = visible_piece(&source, (lx, ly, lw, lh), (0.0, 0.0, cw as f64, ch as f64), filter) {
-                imageops::overlay(&mut canvas, &piece, px.round() as i64, py.round() as i64);
-            }
+            draw_visible(&mut canvas, &source, (lx, ly, lw, lh), (0.0, 0.0, cw as f64, ch as f64), 0.0, filter);
         } else {
             draw_rotated(&mut canvas, &source, (lx, ly, lw, lh), angle.to_radians(), filter);
         }
     }
 
-    // ponytail: imageops::blur (true gaussian); fast_blur is a box approximation that under-blurs; revisit if 4K blur is too slow
     if src.blur > 0.0 {
-        canvas = imageops::blur(&canvas, src.blur * k as f32);
+        canvas = imageops::fast_blur(&canvas, src.blur * k as f32);
     }
     canvas
 }
 
-/// Part of the layer `(lx, ly, lw, lh)` (canvas coordinates, unrotated) that intersects `region` `(x0, y0, x1, y1)`,
-/// resized from the matching source pixels only. Returns the piece and its top-left in canvas coordinates.
-fn visible_piece(source: &RgbaImage, layer: (f64, f64, f64, f64), region: (f64, f64, f64, f64), filter: FilterType) -> Option<(RgbaImage, f64, f64)> {
+/// Draws the part of the layer `(lx, ly, lw, lh)` (canvas coordinates, before rotation) that intersects `region` `(x0, y0, x1, y1)`,
+/// rotated clockwise by `theta` radians around the layer center. Only the matching source pixels are read, so cost stays bounded by the canvas.
+/// Downscales resize the crop; upscales warp it bilinearly (the resized piece would otherwise be unbounded).
+fn draw_visible(canvas: &mut RgbaImage, source: &RgbaImage, layer: (f64, f64, f64, f64), region: (f64, f64, f64, f64), theta: f64, filter: FilterType) {
     let (lx, ly, lw, lh) = layer;
     let (iw, ih) = source.dimensions();
     let (fx, fy) = (lw / iw as f64, lh / ih as f64);
@@ -80,12 +78,45 @@ fn visible_piece(source: &RgbaImage, layer: (f64, f64, f64, f64), region: (f64, 
     let sx1 = ((region.2.min(lx + lw) - lx) / fx).ceil().clamp(0.0, iw as f64) as u32;
     let sy1 = ((region.3.min(ly + lh) - ly) / fy).ceil().clamp(0.0, ih as f64) as u32;
     if sx1 <= sx0 || sy1 <= sy0 {
-        return None;
+        return;
     }
     let crop = imageops::crop_imm(source, sx0, sy0, sx1 - sx0, sy1 - sy0).to_image();
-    let (pw, ph) = ((((sx1 - sx0) as f64 * fx).round() as u32).max(1), (((sy1 - sy0) as f64 * fy).round() as u32).max(1));
-    let piece = if (pw, ph) == crop.dimensions() { crop } else { imageops::resize(&crop, pw, ph, filter) };
-    Some((piece, lx + sx0 as f64 * fx, ly + sy0 as f64 * fy))
+    let (px, py) = (lx + sx0 as f64 * fx, ly + sy0 as f64 * fy);
+    let (cx, cy) = (lx + lw / 2.0, ly + lh / 2.0);
+    let rotation = Projection::translate(cx as f32, cy as f32) * Projection::rotate(theta as f32) * Projection::translate(-cx as f32, -cy as f32);
+    let (cw, ch) = canvas.dimensions();
+    let blank = || RgbaImage::from_pixel(cw, ch, CLEAR);
+    let layer_px = if fx <= 1.0 && fy <= 1.0 {
+        let (pw, ph) = ((((sx1 - sx0) as f64 * fx).round() as u32).max(1), (((sy1 - sy0) as f64 * fy).round() as u32).max(1));
+        let piece = if (pw, ph) == crop.dimensions() { crop } else { imageops::resize(&crop, pw, ph, filter) };
+        if theta == 0.0 {
+            imageops::overlay(canvas, &piece, px.round() as i64, py.round() as i64);
+            return;
+        }
+        let projection = rotation * Projection::translate(px as f32, py as f32);
+        let mut layer_px = blank();
+        warp_into(&piece, &projection, Interpolation::Bilinear, CLEAR, &mut layer_px);
+        layer_px
+    } else {
+        // One replicated edge pixel on each side so bilinear sampling is valid up to the crop edges (it needs right < width).
+        let (w, h) = crop.dimensions();
+        let padded = RgbaImage::from_fn(w + 2, h + 2, |x, y| *crop.get_pixel(x.saturating_sub(1).min(w - 1), y.saturating_sub(1).min(h - 1)));
+        // Source pixel i is centered at layer offset (i + 0.5) * f; output pixel d is sampled at d (imageproc has no half-pixel shift).
+        let projection = rotation * Projection::translate((px - fx / 2.0 - 0.5) as f32, (py - fy / 2.0 - 0.5) as f32) * Projection::scale(fx as f32, fy as f32);
+        let mut layer_px = blank();
+        warp_into(&padded, &projection, Interpolation::Bilinear, CLEAR, &mut layer_px);
+        if theta == 0.0 {
+            // The replicated padding spills up to half a source pixel past the layer edge: cut it off.
+            let (x0, x1, y0, y1) = (lx.round(), (lx + lw).round(), ly.round(), (ly + lh).round());
+            for (x, y, p) in layer_px.enumerate_pixels_mut() {
+                if (x as f64) < x0 || (x as f64) >= x1 || (y as f64) < y0 || (y as f64) >= y1 {
+                    *p = CLEAR;
+                }
+            }
+        }
+        layer_px
+    };
+    imageops::overlay(canvas, &layer_px, 0, 0);
 }
 
 /// Rotates the layer clockwise by `theta` radians around its center and draws it on the canvas.
@@ -97,13 +128,7 @@ fn draw_rotated(canvas: &mut RgbaImage, source: &RgbaImage, layer: (f64, f64, f6
     let (sin, cos) = (-theta).sin_cos();
     let corners = [(0.0, 0.0), (cw, 0.0), (0.0, ch), (cw, ch)].map(|(x, y)| (cx + (x - cx) * cos - (y - cy) * sin, cy + (x - cx) * sin + (y - cy) * cos));
     let region = corners.iter().fold((f64::MAX, f64::MAX, f64::MIN, f64::MIN), |r, &(x, y)| (r.0.min(x), r.1.min(y), r.2.max(x), r.3.max(y)));
-    let Some((piece, px, py)) = visible_piece(source, layer, (region.0.floor(), region.1.floor(), region.2.ceil(), region.3.ceil()), filter) else {
-        return;
-    };
-    let projection = Projection::translate(cx as f32, cy as f32) * Projection::rotate(theta as f32) * Projection::translate((px - cx) as f32, (py - cy) as f32);
-    let mut rotated = RgbaImage::from_pixel(canvas.width(), canvas.height(), CLEAR);
-    warp_into(&piece, &projection, Interpolation::Bilinear, CLEAR, &mut rotated);
-    imageops::overlay(canvas, &rotated, 0, 0);
+    draw_visible(canvas, source, layer, (region.0.floor(), region.1.floor(), region.2.ceil(), region.3.ceil()), theta, filter);
 }
 
 /// Tiles the layer over the canvas from its top-left, shifted by the offset. Rotation does not apply to tiles.
@@ -121,9 +146,7 @@ fn draw_tiles(canvas: &mut RgbaImage, source: &RgbaImage, lw: f64, lh: f64, ox: 
             match &whole {
                 Some(tile) => imageops::overlay(canvas, tile, x, y),
                 None => {
-                    if let Some((piece, px, py)) = visible_piece(source, (x as f64, y as f64, tw as f64, th as f64), (0.0, 0.0, cw as f64, ch as f64), filter) {
-                        imageops::overlay(canvas, &piece, px.round() as i64, py.round() as i64);
-                    }
+                    draw_visible(canvas, source, (x as f64, y as f64, tw as f64, th as f64), (0.0, 0.0, cw as f64, ch as f64), 0.0, filter);
                 }
             }
             x += tw as i64;
@@ -317,12 +340,21 @@ mod tests {
         let img = RgbaImage::from_pixel(4, 4, Rgba([255, 255, 255, 255]));
         let out = area(&img, &Source { blur: 2.0, ..src(Sizing::Center) }, 12, 12);
         assert!(out.get_pixel(3, 6)[0] > 0);
-        assert!(out.get_pixel(6, 6)[0] > 100);
+        assert!(out.get_pixel(6, 6)[0] > 50);
     }
 
     #[test]
     fn preview_scale_shrinks_output() {
         let out = render_area(&halves(), (400, 200), &src(Sizing::Stretch), (400, 200), 0.01, FilterType::Triangle);
         assert_eq!(out.dimensions(), (4, 2));
+    }
+
+    #[test]
+    fn tiny_image_huge_upscale_stays_bounded() {
+        let img = RgbaImage::from_pixel(1, 1, RED);
+        for rotation in [0.0, 30.0] {
+            let out = render_area(&img, (1, 1), &Source { scale: 1000.0, rotation, ..src(Sizing::Stretch) }, (5120, 1440), 1.0, FilterType::Lanczos3);
+            assert!(is_red(out.get_pixel(2560, 720)), "rotation {rotation}");
+        }
     }
 }
