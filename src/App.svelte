@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { listen } from "@tauri-apps/api/event";
   import { onMount } from "svelte";
   import Adjustments from "./lib/Adjustments.svelte";
   import BackgroundMode from "./lib/BackgroundMode.svelte";
@@ -18,6 +19,14 @@
     } catch (e) {
       app.banner = { kind: "error", text: String(e) };
     }
+  });
+
+  onMount(() => {
+    // The tray applied a profile: drop unsaved edits so a later Apply cannot revert it.
+    const unlisten = listen("profiles-changed", () => app.init().catch((e) => (app.banner = { kind: "error", text: String(e) })));
+    return () => {
+      unlisten.then((f) => f());
+    };
   });
 </script>
 

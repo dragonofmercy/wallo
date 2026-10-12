@@ -31,3 +31,5 @@ export const listMonitors = () => invoke<Monitor[]>("list_monitors");
 export const loadProfiles = () => invoke<{ profiles: Profiles; warning: string | null }>("load_profiles");
 export const renderPreview = (profile: Profile, monitors: Monitor[], width: number) => invoke<Preview[]>("render_preview", { profile: cleanProfile(profile), monitors, width });
 export const applyProfiles = (profiles: Profiles) => invoke<void>("apply", { profiles: { lastSelected: profiles.lastSelected, profiles: profiles.profiles.map(cleanProfile) } });
+export const getAutostart = () => invoke<boolean>("get_autostart");
+export const setAutostart = (enabled: boolean) => invoke<void>("set_autostart", { enabled });
