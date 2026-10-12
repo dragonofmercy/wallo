@@ -1,9 +1,12 @@
 #![allow(dead_code)] // ponytail: unused until Task 7 wires the module; remove then
 
-use crate::profile::{Sizing, Source};
+use crate::monitors::Monitor;
+use crate::profile::{Mode, Profile, Sizing, Source};
 use image::imageops::{self, FilterType};
 use image::{Rgba, RgbaImage};
 use imageproc::geometric_transformations::{warp_into, Interpolation, Projection};
+use std::path::Path;
+use std::sync::Arc;
 
 /// Scale factors (x, y) that fit an `iw x ih` image into an `aw x ah` area for the given sizing mode.
 pub fn placement(sizing: Sizing, no_upscale: bool, iw: u32, ih: u32, aw: u32, ah: u32) -> (f64, f64) {
@@ -152,6 +155,58 @@ fn draw_tiles(canvas: &mut RgbaImage, source: &RgbaImage, lw: f64, lh: f64, ox: 
             x += tw as i64;
         }
         y += th as i64;
+    }
+}
+
+/// Loads an image: returns the decoded pixels (possibly downscaled) and the original size. Errors include the path.
+pub type Loader<'a> = dyn Fn(&Path) -> Result<(Arc<RgbaImage>, (u32, u32)), String> + 'a;
+
+pub struct Rendered {
+    pub id: String,
+    pub image: RgbaImage,
+    pub error: Option<String>,
+}
+
+/// One image per monitor, in `monitors` order, each `scaled(width, k) x scaled(height, k)`.
+pub fn render_profile(profile: &Profile, monitors: &[Monitor], k: f64, filter: FilterType, load: &Loader) -> Vec<Rendered> {
+    match profile.mode {
+        Mode::Span => {
+            let Some(bx) = monitors.iter().map(|m| m.x).min() else { return Vec::new() };
+            let by = monitors.iter().map(|m| m.y).min().unwrap_or(0);
+            let bx1 = monitors.iter().map(|m| m.x + m.width as i32).max().unwrap_or(0);
+            let by1 = monitors.iter().map(|m| m.y + m.height as i32).max().unwrap_or(0);
+            let (canvas, error) = render_source(&profile.shared, ((bx1 - bx) as u32, (by1 - by) as u32), k, filter, load);
+            monitors
+                .iter()
+                .map(|m| {
+                    let x = ((m.x - bx) as f64 * k).round() as u32;
+                    let y = ((m.y - by) as f64 * k).round() as u32;
+                    let image = imageops::crop_imm(&canvas, x, y, scaled(m.width, k), scaled(m.height, k)).to_image();
+                    Rendered { id: m.id.clone(), image, error: error.clone() }
+                })
+                .collect()
+        }
+        Mode::Same | Mode::PerMonitor => monitors
+            .iter()
+            .map(|m| {
+                let fallback = Source::default();
+                let src = match profile.mode {
+                    Mode::Same => &profile.shared,
+                    _ => profile.monitors.get(&m.id).unwrap_or(&fallback),
+                };
+                let (image, error) = render_source(src, (m.width, m.height), k, filter, load);
+                Rendered { id: m.id.clone(), image, error }
+            })
+            .collect(),
+    }
+}
+
+fn render_source(src: &Source, area: (u32, u32), k: f64, filter: FilterType, load: &Loader) -> (RgbaImage, Option<String>) {
+    let black = || RgbaImage::from_pixel(scaled(area.0, k), scaled(area.1, k), BLACK);
+    let Some(path) = &src.image_path else { return (black(), None) };
+    match load(path) {
+        Ok((img, native)) => (render_area(&img, native, src, area, k, filter), None),
+        Err(e) => (black(), Some(e)),
     }
 }
 
@@ -356,5 +411,108 @@ mod tests {
             let out = render_area(&img, (1, 1), &Source { scale: 1000.0, rotation, ..src(Sizing::Stretch) }, (5120, 1440), 1.0, FilterType::Lanczos3);
             assert!(is_red(out.get_pixel(2560, 720)), "rotation {rotation}");
         }
+    }
+
+    use crate::monitors::Monitor;
+    use crate::profile::{Mode, Profile};
+    use std::path::{Path, PathBuf};
+    use std::sync::Arc;
+
+    fn mon(id: &str, x: i32, y: i32, width: u32, height: u32) -> Monitor {
+        Monitor { id: id.into(), number: 1, x, y, width, height }
+    }
+
+    fn with_image(path: &str, sizing: Sizing) -> Source {
+        Source {
+            image_path: Some(PathBuf::from(path)),
+            sizing,
+            ..Source::default()
+        }
+    }
+
+    #[allow(clippy::type_complexity)]
+    fn ok_loader(img: RgbaImage) -> impl Fn(&Path) -> Result<(Arc<RgbaImage>, (u32, u32)), String> {
+        let dims = img.dimensions();
+        let img = Arc::new(img);
+        move |_| Ok((img.clone(), dims))
+    }
+
+    #[test]
+    fn span_crops_each_monitor_with_negative_x() {
+        let img = RgbaImage::from_fn(8, 2, |x, _| if x < 4 { RED } else { BLUE });
+        let profile = Profile {
+            mode: Mode::Span,
+            shared: with_image("a.png", Sizing::Stretch),
+            ..Profile::default()
+        };
+        let monitors = [mon("left", -4, 0, 4, 2), mon("primary", 0, 0, 4, 2)];
+        let out = render_profile(&profile, &monitors, 1.0, FilterType::Nearest, &ok_loader(img));
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0].id, "left");
+        assert_eq!(out[0].image.dimensions(), (4, 2));
+        assert!(out[0].image.pixels().all(|p| *p == RED));
+        assert!(out[1].image.pixels().all(|p| *p == BLUE));
+        assert!(out.iter().all(|r| r.error.is_none()));
+    }
+
+    #[test]
+    fn same_renders_shared_source_on_each_monitor() {
+        let profile = Profile {
+            mode: Mode::Same,
+            shared: with_image("a.png", Sizing::Stretch),
+            ..Profile::default()
+        };
+        let monitors = [mon("a", 0, 0, 4, 2), mon("b", 4, 0, 6, 3)];
+        let out = render_profile(&profile, &monitors, 1.0, FilterType::Nearest, &ok_loader(halves()));
+        assert_eq!(out[1].image.dimensions(), (6, 3));
+        assert_eq!(*out[0].image.get_pixel(0, 0), RED);
+        assert_eq!(*out[1].image.get_pixel(5, 2), BLUE);
+    }
+
+    #[test]
+    fn per_monitor_uses_own_source_and_black_when_missing() {
+        let mut profile = Profile { mode: Mode::PerMonitor, ..Profile::default() };
+        profile.monitors.insert("a".into(), with_image("a.png", Sizing::Stretch));
+        let monitors = [mon("a", 0, 0, 4, 2), mon("unknown", 4, 0, 4, 2)];
+        let out = render_profile(&profile, &monitors, 1.0, FilterType::Nearest, &ok_loader(halves()));
+        assert_eq!(*out[0].image.get_pixel(0, 0), RED);
+        assert!(out[1].image.pixels().all(|p| *p == BLACK));
+        assert!(out[1].error.is_none());
+    }
+
+    #[test]
+    fn source_without_image_is_black_without_error() {
+        let profile = Profile { mode: Mode::Same, ..Profile::default() };
+        let out = render_profile(&profile, &[mon("a", 0, 0, 4, 2)], 1.0, FilterType::Nearest, &ok_loader(halves()));
+        assert!(out[0].image.pixels().all(|p| *p == BLACK));
+        assert!(out[0].error.is_none());
+    }
+
+    #[test]
+    fn missing_image_reports_error_and_renders_black() {
+        let profile = Profile {
+            mode: Mode::Same,
+            shared: with_image("gone.png", Sizing::Center),
+            ..Profile::default()
+        };
+        let fail = |p: &Path| -> Result<(Arc<RgbaImage>, (u32, u32)), String> { Err(format!("{}: not found", p.display())) };
+        let out = render_profile(&profile, &[mon("a", 0, 0, 4, 2)], 1.0, FilterType::Nearest, &fail);
+        assert!(out[0].image.pixels().all(|p| *p == BLACK));
+        assert_eq!(out[0].error.as_deref(), Some("gone.png: not found"));
+    }
+
+    #[test]
+    fn span_preview_scale_keeps_slices_aligned() {
+        let img = RgbaImage::from_fn(8, 2, |x, _| if x < 4 { RED } else { BLUE });
+        let profile = Profile {
+            mode: Mode::Span,
+            shared: with_image("a.png", Sizing::Stretch),
+            ..Profile::default()
+        };
+        let monitors = [mon("left", -400, 0, 400, 200), mon("primary", 0, 0, 400, 200)];
+        let out = render_profile(&profile, &monitors, 0.01, FilterType::Nearest, &ok_loader(img));
+        assert_eq!(out[0].image.dimensions(), (4, 2));
+        assert_eq!(out[1].image.dimensions(), (4, 2));
+        assert_eq!(*out[1].image.get_pixel(0, 0), BLUE);
     }
 }
