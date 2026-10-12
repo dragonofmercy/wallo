@@ -64,22 +64,24 @@ pub fn refresh_menu(app: &AppHandle) {
 
 /// Brings the window to front, or recreates it (it is destroyed on close to free WebView2).
 pub fn show_window(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.unminimize();
-        let _ = window.show();
-        let _ = window.set_focus();
-        return;
-    }
-    let config = app.config().app.windows[0].clone();
-    if let Err(e) = WebviewWindowBuilder::from_config(app, &config).and_then(|b| b.build()) {
-        // A concurrent call may have built it first (duplicate label): focus that one.
-        match app.get_webview_window("main") {
-            Some(window) => {
-                let _ = window.set_focus();
+    let window = match app.get_webview_window("main") {
+        Some(window) => window,
+        None => {
+            // Built hidden ("visible": false): the window-state plugin moves it before it first appears.
+            let config = app.config().app.windows[0].clone();
+            match WebviewWindowBuilder::from_config(app, &config).and_then(|b| b.build()) {
+                Ok(window) => window,
+                // A concurrent call may have built it first (duplicate label): show that one.
+                Err(e) => match app.get_webview_window("main") {
+                    Some(window) => window,
+                    None => return error(app, format!("Cannot open the window: {e}")),
+                },
             }
-            None => error(app, format!("Cannot open the window: {e}")),
         }
-    }
+    };
+    let _ = window.unminimize();
+    let _ = window.show();
+    let _ = window.set_focus();
 }
 
 fn apply_from_tray(app: &AppHandle, name: String) {
