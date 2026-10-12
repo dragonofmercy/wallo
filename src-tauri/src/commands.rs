@@ -11,8 +11,9 @@ use std::collections::HashMap;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
-use tauri::State;
+use std::sync::{Arc, Mutex, MutexGuard, TryLockError};
+use tauri::{AppHandle, State};
+use tauri_plugin_autostart::ManagerExt;
 
 /// Longest side of cached preview sources.
 const PREVIEW_MAX: u32 = 1600;
@@ -43,11 +44,24 @@ pub struct Preview {
     error: Option<String>,
 }
 
-fn data_dir() -> PathBuf {
+/// Serializes applies: the window's Apply and tray clicks must not write wallpapers concurrently.
+#[derive(Default)]
+pub struct ApplyLock(pub Arc<Mutex<()>>);
+
+/// None when another apply holds the lock. A poisoned lock (panic during an apply) is still usable.
+pub(crate) fn lock_apply(lock: &Mutex<()>) -> Option<MutexGuard<'_, ()>> {
+    match lock.try_lock() {
+        Ok(guard) => Some(guard),
+        Err(TryLockError::Poisoned(e)) => Some(e.into_inner()),
+        Err(TryLockError::WouldBlock) => None,
+    }
+}
+
+pub(crate) fn data_dir() -> PathBuf {
     PathBuf::from(std::env::var_os("APPDATA").unwrap_or_default()).join("wallo")
 }
 
-fn profiles_path() -> PathBuf {
+pub(crate) fn profiles_path() -> PathBuf {
     data_dir().join("profiles.json")
 }
 
@@ -115,33 +129,81 @@ pub async fn render_preview(cache: State<'_, ImageCache>, profile: Profile, moni
     .await
 }
 
+/// Saves `profiles`, then renders and applies the selected one. Blocking; the caller holds the apply lock.
+pub(crate) fn apply_now(profiles: &Profiles) -> Result<(), String> {
+    profile::save(&profiles_path(), profiles).map_err(|e| format!("Cannot save profiles: {e}"))?;
+    let selected = profiles.selected().ok_or("No profile selected")?;
+    let monitors = monitors::list()?;
+    // Same mode renders one file on every monitor: decode each path once.
+    let decoded: RefCell<HashMap<PathBuf, Cached>> = RefCell::default();
+    let load = |p: &Path| -> Result<Cached, String> {
+        if let Some(hit) = decoded.borrow().get(p) {
+            return Ok(hit.clone());
+        }
+        let img = decode(p)?;
+        let dims = img.dimensions();
+        let entry = (Arc::new(img), dims);
+        decoded.borrow_mut().insert(p.to_path_buf(), entry.clone());
+        Ok(entry)
+    };
+    let rendered = render_profile(selected, &monitors, 1.0, FilterType::Lanczos3, &load);
+    if let Some(error) = rendered.iter().find_map(|r| r.error.clone()) {
+        return Err(error);
+    }
+    let images: Vec<(String, RgbaImage)> = rendered.into_iter().map(|r| (r.id, r.image)).collect();
+    wallpaper::apply(&data_dir().join("rendered"), images)
+}
+
 #[tauri::command]
-pub async fn apply(blocked: State<'_, SaveBlocked>, profiles: Profiles) -> Result<(), String> {
+pub async fn apply(app: AppHandle, blocked: State<'_, SaveBlocked>, lock: State<'_, ApplyLock>, profiles: Profiles) -> Result<(), String> {
     if blocked.0.load(Ordering::SeqCst) {
         return Err("profiles.json could not be read at startup, restart Wallo before applying to avoid overwriting it".into());
     }
+    let lock = lock.0.clone();
     blocking(move || {
-        profile::save(&profiles_path(), &profiles).map_err(|e| format!("Cannot save profiles: {e}"))?;
-        let selected = profiles.selected().ok_or("No profile selected")?;
-        let monitors = monitors::list()?;
-        // Same mode renders one file on every monitor: decode each path once.
-        let decoded: RefCell<HashMap<PathBuf, Cached>> = RefCell::default();
-        let load = |p: &Path| -> Result<Cached, String> {
-            if let Some(hit) = decoded.borrow().get(p) {
-                return Ok(hit.clone());
-            }
-            let img = decode(p)?;
-            let dims = img.dimensions();
-            let entry = (Arc::new(img), dims);
-            decoded.borrow_mut().insert(p.to_path_buf(), entry.clone());
-            Ok(entry)
-        };
-        let rendered = render_profile(selected, &monitors, 1.0, FilterType::Lanczos3, &load);
-        if let Some(error) = rendered.iter().find_map(|r| r.error.clone()) {
-            return Err(error);
-        }
-        let images: Vec<(String, RgbaImage)> = rendered.into_iter().map(|r| (r.id, r.image)).collect();
-        wallpaper::apply(&data_dir().join("rendered"), images)
+        let _guard = lock_apply(&lock).ok_or("An apply is already running")?;
+        apply_now(&profiles)
     })
-    .await
+    .await?;
+    crate::tray::refresh_menu(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_autostart(app: AppHandle) -> Result<bool, String> {
+    app.autolaunch().is_enabled().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let launch = app.autolaunch();
+    if enabled { launch.enable() } else { launch.disable() }.map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lock_apply_is_exclusive() {
+        let lock = Mutex::new(());
+        let guard = lock_apply(&lock);
+        assert!(guard.is_some());
+        assert!(lock_apply(&lock).is_none());
+        drop(guard);
+        assert!(lock_apply(&lock).is_some());
+    }
+
+    #[test]
+    fn lock_apply_survives_poison() {
+        let lock = Arc::new(Mutex::new(()));
+        let l = lock.clone();
+        let _ = std::thread::spawn(move || {
+            let _g = l.lock().unwrap();
+            panic!("apply panicked");
+        })
+        .join();
+        assert!(lock.is_poisoned());
+        assert!(lock_apply(&lock).is_some());
+    }
 }
