@@ -72,7 +72,13 @@ pub fn show_window(app: &AppHandle) {
     }
     let config = app.config().app.windows[0].clone();
     if let Err(e) = WebviewWindowBuilder::from_config(app, &config).and_then(|b| b.build()) {
-        error(app, format!("Cannot open the window: {e}"));
+        // A concurrent call may have built it first (duplicate label): focus that one.
+        match app.get_webview_window("main") {
+            Some(window) => {
+                let _ = window.set_focus();
+            }
+            None => error(app, format!("Cannot open the window: {e}")),
+        }
     }
 }
 
@@ -83,7 +89,10 @@ fn apply_from_tray(app: &AppHandle, name: String) {
         // Busy: ignore the click. Either way the menu is rebuilt, Windows toggled the clicked check mark itself.
         if let Some(_guard) = commands::lock_apply(&lock) {
             let loaded = profile::load(&commands::profiles_path());
-            let result = if loaded.save_blocked {
+            let result = if let Some(warning) = loaded.warning {
+                // Corrupt file was just moved to .bak: applying would save defaults over it.
+                Err(warning)
+            } else if loaded.save_blocked {
                 Err("profiles.json could not be read, fix or remove it before applying".to_string())
             } else {
                 let mut profiles = loaded.profiles;

@@ -21,9 +21,18 @@ const PREVIEW_MAX: u32 = 1600;
 type Cached = (Arc<RgbaImage>, (u32, u32));
 
 /// Downscaled sources for previews, keyed by path.
-// ponytail: never invalidated, an image edited on disk keeps its old preview until restart.
+// ponytail: only cleared when the window is closed, an image edited on disk keeps its old preview until then.
 #[derive(Default)]
 pub struct ImageCache(Arc<Mutex<HashMap<PathBuf, Cached>>>);
+
+impl ImageCache {
+    /// Frees the previews (the app lives on in the tray after the window is closed).
+    pub(crate) fn clear(&self) {
+        if let Ok(mut map) = self.0.lock() {
+            map.clear();
+        }
+    }
+}
 
 /// Set when profiles.json exists but could not be read at startup: `apply` must not overwrite it.
 #[derive(Default)]
@@ -131,8 +140,8 @@ pub async fn render_preview(cache: State<'_, ImageCache>, profile: Profile, moni
 
 /// Saves `profiles`, then renders and applies the selected one. Blocking; the caller holds the apply lock.
 pub(crate) fn apply_now(profiles: &Profiles) -> Result<(), String> {
-    profile::save(&profiles_path(), profiles).map_err(|e| format!("Cannot save profiles: {e}"))?;
     let selected = profiles.selected().ok_or("No profile selected")?;
+    profile::save(&profiles_path(), profiles).map_err(|e| format!("Cannot save profiles: {e}"))?;
     let monitors = monitors::list()?;
     // Same mode renders one file on every monitor: decode each path once.
     let decoded: RefCell<HashMap<PathBuf, Cached>> = RefCell::default();
@@ -157,7 +166,7 @@ pub(crate) fn apply_now(profiles: &Profiles) -> Result<(), String> {
 #[tauri::command]
 pub async fn apply(app: AppHandle, blocked: State<'_, SaveBlocked>, lock: State<'_, ApplyLock>, profiles: Profiles) -> Result<(), String> {
     if blocked.0.load(Ordering::SeqCst) {
-        return Err("profiles.json could not be read at startup, restart Wallo before applying to avoid overwriting it".into());
+        return Err("profiles.json could not be read at startup, close and reopen the Wallo window before applying to avoid overwriting it".into());
     }
     let lock = lock.0.clone();
     blocking(move || {
