@@ -2,6 +2,7 @@ use crate::monitors::{self, Monitor};
 use crate::profile::{self, Profile, Profiles};
 use crate::render::{render_profile, Rendered};
 use crate::wallpaper;
+use auto_launch::{AutoLaunch, AutoLaunchBuilder, WindowsEnableMode};
 use base64::Engine;
 use image::imageops::FilterType;
 use image::{DynamicImage, ImageFormat, ImageReader, RgbaImage};
@@ -13,7 +14,6 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, TryLockError};
 use tauri::{AppHandle, State};
-use tauri_plugin_autostart::ManagerExt;
 
 /// Longest side of cached preview sources.
 const PREVIEW_MAX: u32 = 1600;
@@ -182,14 +182,26 @@ pub async fn apply(app: AppHandle, blocked: State<'_, SaveBlocked>, lock: State<
     Ok(())
 }
 
-#[tauri::command]
-pub fn get_autostart(app: AppHandle) -> Result<bool, String> {
-    app.autolaunch().is_enabled().map_err(|e| e.to_string())
+/// Per-user Run entry (HKCU, never HKLM) with a quoted exe path, so a path containing spaces still launches.
+fn autolaunch() -> Result<AutoLaunch, String> {
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    AutoLaunchBuilder::new()
+        .set_app_name("Wallo")
+        .set_app_path(&format!("\"{}\"", exe.display()))
+        .set_args(&[crate::TRAY_ARG])
+        .set_windows_enable_mode(WindowsEnableMode::CurrentUser)
+        .build()
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
-    let launch = app.autolaunch();
+pub fn get_autostart() -> Result<bool, String> {
+    autolaunch()?.is_enabled().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_autostart(enabled: bool) -> Result<(), String> {
+    let launch = autolaunch()?;
     if enabled { launch.enable() } else { launch.disable() }.map_err(|e| e.to_string())
 }
 

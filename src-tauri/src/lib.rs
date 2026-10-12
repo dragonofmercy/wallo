@@ -11,7 +11,6 @@ mod wallpaper;
 /// Command-line flag used by the autostart entry: start in the tray, no window.
 const TRAY_ARG: &str = "--tray";
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let hidden = std::env::args().any(|a| a == TRAY_ARG);
     tauri::Builder::default()
@@ -21,7 +20,6 @@ pub fn run() {
             let app = app.clone();
             std::thread::spawn(move || tray::show_window(&app));
         }))
-        .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec![TRAY_ARG])))
         .plugin(tauri_plugin_dialog::init())
         // Fixed-size window: only the position is remembered.
         .plugin(tauri_plugin_window_state::Builder::new().with_state_flags(StateFlags::POSITION).build())
