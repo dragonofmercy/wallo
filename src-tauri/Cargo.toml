@@ -15,14 +15,21 @@ name = "wallo_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2.6.3" }
+tauri-build = { version = "2.6.3", features = [] }
 
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "2.11.3" }
+tauri = { version = "2.11.3", features = [] }
 tauri-plugin-dialog = "2.7.3"
 base64 = "0.23.1"
 imageproc = "0.25.1"
 image = { version = "0.25.6", default-features = false, features = ["png", "jpeg", "bmp", "webp", "gif"] }
 windows = { version = "0.61.3", features = ["Win32_Foundation", "Win32_System_Com", "Win32_UI_Shell"] }
+
+# Image decode/resize is 10-50x slower unoptimized: optimize even in dev builds.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3

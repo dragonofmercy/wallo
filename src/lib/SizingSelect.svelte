@@ -32,7 +32,8 @@
 
 <div class="select" bind:this={root}>
   <button type="button" class="current" onclick={() => (open = !open)} aria-haspopup="listbox" aria-expanded={open}>
-    {@render icon(value)}<span>{label}</span><span class="caret">v</span>
+    {@render icon(value)}<span class="label">{label}</span>
+    <svg class="caret" class:open viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2 4l4 4 4-4" /></svg>
   </button>
   {#if open}
     <ul role="listbox">
@@ -57,17 +58,35 @@
     width: 100%;
     text-align: left;
   }
-  .current span:first-of-type {
-    flex: 1;
+  button span,
+  button svg {
+    flex-shrink: 0;
+  }
+  .label {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .caret {
-    color: var(--muted);
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.15s;
+  }
+  .caret.open {
+    transform: rotate(180deg);
   }
   ul {
     position: absolute;
     z-index: 10;
     left: 0;
-    right: 0;
+    min-width: 100%;
+    width: max-content;
+    box-sizing: border-box;
     margin: 2px 0 0;
     padding: 4px;
     list-style: none;
@@ -77,6 +96,7 @@
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   }
   ul button {
+    white-space: nowrap;
     border: none;
     background: transparent;
     padding: 4px 8px;
