@@ -1,8 +1,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import Adjustments from "./lib/Adjustments.svelte";
   import BackgroundMode from "./lib/BackgroundMode.svelte";
+  import Footer from "./lib/Footer.svelte";
   import MonitorPreview from "./lib/MonitorPreview.svelte";
   import ProfileBar from "./lib/ProfileBar.svelte";
+  import WallpaperSource from "./lib/WallpaperSource.svelte";
   import { app } from "./lib/state.svelte";
 
   let ready = $state(false);
@@ -38,15 +41,15 @@
         </section>
         <section class="card grow">
           <h2>Wallpaper Source</h2>
-          <!-- WallpaperSource (Task 11) -->
+          <WallpaperSource />
         </section>
       </div>
       <section class="card">
         <h2>Monitor Settings</h2>
-        <!-- Adjustments (Task 11) -->
+        <Adjustments />
       </section>
     </div>
-    <!-- Footer (Task 11) -->
+    <Footer />
   {/if}
 </main>
 
