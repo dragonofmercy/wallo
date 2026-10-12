@@ -1,4 +1,5 @@
 use tauri::Manager;
+use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
 mod commands;
 mod monitors;
@@ -22,6 +23,8 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec![TRAY_ARG])))
         .plugin(tauri_plugin_dialog::init())
+        // Fixed-size window: only the position is remembered.
+        .plugin(tauri_plugin_window_state::Builder::new().with_state_flags(StateFlags::POSITION).build())
         .manage(commands::ImageCache::default())
         .manage(commands::SaveBlocked::default())
         .manage(commands::ApplyLock::default())
@@ -45,7 +48,11 @@ pub fn run() {
         .run(|app, event| match event {
             // Closing the window keeps Wallo in the tray; only "Quit" (app.exit) carries an exit code.
             tauri::RunEvent::ExitRequested { code: None, api, .. } => api.prevent_exit(),
-            tauri::RunEvent::WindowEvent { event: tauri::WindowEvent::Destroyed, .. } => app.state::<commands::ImageCache>().clear(),
+            tauri::RunEvent::WindowEvent { event: tauri::WindowEvent::Destroyed, .. } => {
+                app.state::<commands::ImageCache>().clear();
+                // The plugin only writes to disk on exit; Wallo rarely exits (tray), and a logoff kills it without Exit.
+                let _ = app.save_window_state(StateFlags::POSITION);
+            }
             _ => {}
         });
 }
