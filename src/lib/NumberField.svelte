@@ -4,6 +4,24 @@
   const clamp = (v: number) => Math.min(max, Math.max(min, v));
   const current = () => (Number.isFinite(value) ? value : 0);
 
+  // Keystroke filter: digits, a leading "-" when negatives are allowed, one decimal separator when decimals are shown.
+  function sanitize(input: HTMLInputElement) {
+    const caret = input.selectionStart ?? input.value.length;
+    let seenDot = false;
+    const kept = [...input.value].filter((c, i) => {
+      if (c >= "0" && c <= "9") return true;
+      if (c === "-") return i === 0 && min < 0;
+      if ((c === "." || c === ",") && decimals > 0 && !seenDot) return (seenDot = true);
+      return false;
+    });
+    const removed = input.value.length - kept.length;
+    if (removed === 0) return;
+    input.value = kept.join("");
+    // The rejected character was just typed at the caret, so the caret moves back by what was removed.
+    const pos = Math.max(0, caret - removed);
+    input.setSelectionRange(pos, pos);
+  }
+
   function commit(text: string) {
     const v = parseFloat(text.replace(",", "."));
     // Invalid input keeps the previous value; reassigning forces the field to redisplay it.
@@ -13,7 +31,7 @@
 
 <div class="lbl">{label}</div>
 <div class="field num" class:off={disabled}>
-  <input type="text" inputmode="decimal" aria-label={label} {disabled} value={current().toFixed(decimals)} onchange={(e) => commit(e.currentTarget.value)} />
+  <input type="text" inputmode="decimal" aria-label={label} {disabled} value={current().toFixed(decimals)} oninput={(e) => sanitize(e.currentTarget)} onchange={(e) => commit(e.currentTarget.value)} />
   {#if unit}<span class="unit">{unit}</span>{/if}
   <div class="step">
     <button type="button" tabindex="-1" aria-label="Increase {label}" {disabled} onclick={() => (value = clamp(current() + step))}>
