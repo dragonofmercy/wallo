@@ -43,7 +43,7 @@
 
 <div class="lbl">Sizing</div>
 <Select bind:value={app.source.sizing} options={SIZINGS} icon={sizingIcon} />
-<label class="chk stretch"><input type="checkbox" bind:checked={app.source.noUpscale} /><span class="tgl"></span>Don't stretch smaller images</label>
+<label class="chk stretch"><input type="checkbox" bind:checked={app.source.noUpscale} /><span class="box"><svg viewBox="0 0 12 12"><path d="M2.5 6.5l2.5 2.5 4.5-5" /></svg></span>Don't stretch smaller images</label>
 <div class="image">
   <button type="button" class="btn" onclick={loadImage}><Icon name="folder" />Load Image</button>
   <div class="meta">
