@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import ProfileBar from "./lib/ProfileBar.svelte";
   import { app } from "./lib/state.svelte";
 
   let ready = $state(false);
@@ -24,7 +25,7 @@
   {#if ready}
     <section class="card">
       <h2>Wallpaper Profile</h2>
-      <!-- ProfileBar (Task 9) -->
+      <ProfileBar />
     </section>
     <section class="preview"><!-- MonitorPreview (Task 10) --></section>
     <div class="columns">
