@@ -26,9 +26,9 @@
   function parse(text: string) {
     const t = text.replace(/\s/g, "");
     if (!/^[+-]?[\d.,]*$/.test(t) || !/\d/.test(t)) return NaN;
-    // "1,000" / "12,500" (comma + exactly 3 digits, no ".") is a thousands separator: it commits 1000 / 12500.
-    // Otherwise a single comma with no "." is the decimal separator ("1,5" -> 1.5); with a "." present commas are thousands separators.
-    const n = /^[+-]?\d{1,3}(,\d{3})+$/.test(t) || t.includes(".") ? t.replace(/,/g, "") : t.replace(",", ".");
+    // A single comma is always the decimal separator ("1,5" -> 1.5, "1,000" -> 1): typing and pasting share this path and the user types French decimals.
+    // With a "." present, commas are thousands separators and are dropped.
+    const n = t.includes(".") ? t.replace(/,/g, "") : t.replace(",", ".");
     return Number(n);
   }
 
