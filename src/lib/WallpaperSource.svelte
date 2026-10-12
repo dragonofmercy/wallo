@@ -59,7 +59,7 @@
 
 <style>
   .stretch {
-    margin: 20px 0 14px;
+    margin: 14px 0 14px 6px;
   }
   .image {
     display: flex;
