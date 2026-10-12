@@ -49,6 +49,7 @@ h2,
 }
 
 .card {
+  position: relative;
   background: linear-gradient(180deg, rgba(18, 38, 66, 0.78), rgba(11, 26, 47, 0.78));
   border: 1px solid var(--line);
   border-radius: 12px;
