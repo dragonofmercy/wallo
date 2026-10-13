@@ -1,7 +1,7 @@
 use crate::monitors::{self, Monitor};
 use crate::profile::{self, Profile, Profiles, Source};
 use crate::render::{self, render_profile, Rendered};
-use crate::wallpaper;
+use crate::{settings, wallpaper, watcher};
 use auto_launch::{AutoLaunch, AutoLaunchBuilder, WindowsEnableMode};
 use base64::Engine;
 use image::imageops::FilterType;
@@ -174,8 +174,11 @@ pub(crate) fn apply_now(profiles: &Profiles) -> Result<(), String> {
     if let Some(error) = rendered.iter().find_map(|r| r.error.clone()) {
         return Err(error);
     }
+    let ids: Vec<String> = rendered.iter().map(|r| r.id.clone()).collect();
     let images: Vec<(String, RgbaImage)> = rendered.into_iter().map(|r| (r.id, r.image)).collect();
-    wallpaper::apply(&data_dir().join("rendered"), images)?;
+    let files = wallpaper::apply(&data_dir().join("rendered"), images)?;
+    // Before saving: the wallpapers are on screen even if profiles.json cannot be written.
+    watcher::record(monitors, ids.into_iter().zip(files).collect());
     profile::save(&profiles_path(), profiles).map_err(|e| format!("Wallpapers applied, but profiles could not be saved: {e}"))
 }
 
@@ -218,6 +221,19 @@ pub fn set_autostart(enabled: bool) -> Result<(), String> {
     if !enabled && launch.is_enabled().map_err(|e| e.to_string())? {
         return Err("Wallo is still started for all users (registry HKLM); remove that entry as administrator".into());
     }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_keep_wallpaper() -> bool {
+    watcher::enabled()
+}
+
+/// Saved first: a setting that cannot be saved is not turned on.
+#[tauri::command]
+pub fn set_keep_wallpaper(enabled: bool) -> Result<(), String> {
+    profile::save(&settings::path(), &settings::Settings { keep_wallpaper: enabled }).map_err(|e| format!("Cannot save settings: {e}"))?;
+    watcher::set_enabled(enabled);
     Ok(())
 }
 

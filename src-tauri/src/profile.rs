@@ -189,13 +189,13 @@ fn dedupe_names(profiles: &mut [Profile]) {
 }
 
 /// Atomic: writes and syncs a temp file then renames it over the target.
-pub fn save(path: &Path, profiles: &Profiles) -> io::Result<()> {
+pub fn save<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir)?;
     }
     let tmp = path.with_extension("json.tmp");
     let mut f = fs::File::create(&tmp)?;
-    f.write_all(serde_json::to_string_pretty(profiles)?.as_bytes())?;
+    f.write_all(serde_json::to_string_pretty(value)?.as_bytes())?;
     f.sync_all()?;
     drop(f);
     fs::rename(&tmp, path)

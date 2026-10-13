@@ -5,8 +5,10 @@ mod commands;
 mod monitors;
 mod profile;
 mod render;
+mod settings;
 mod tray;
 mod wallpaper;
+mod watcher;
 
 /// Command-line flag used by the autostart entry: start in the tray, no window.
 const TRAY_ARG: &str = "--tray";
@@ -29,6 +31,7 @@ pub fn run() {
         .manage(commands::ApplyLock::default())
         .setup(move |app| {
             tray::create(app.handle())?;
+            watcher::start(app.handle());
             if !hidden {
                 tray::show_window(app.handle());
             }
@@ -41,7 +44,9 @@ pub fn run() {
             commands::align_offset,
             commands::apply,
             commands::get_autostart,
-            commands::set_autostart
+            commands::set_autostart,
+            commands::get_keep_wallpaper,
+            commands::set_keep_wallpaper
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

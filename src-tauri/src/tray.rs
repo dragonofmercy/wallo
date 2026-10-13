@@ -114,6 +114,6 @@ fn apply_from_tray(app: &AppHandle, name: String) {
     });
 }
 
-fn error(app: &AppHandle, text: String) {
+pub(crate) fn error(app: &AppHandle, text: String) {
     app.dialog().message(text).kind(MessageDialogKind::Error).title("Wallo").show(|_| {});
 }

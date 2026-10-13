@@ -6,11 +6,12 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use windows::core::HSTRING;
 use windows::Win32::System::Com::CoTaskMemFree;
-use windows::Win32::UI::Shell::DWPOS_FILL;
+use windows::Win32::UI::Shell::{IDesktopWallpaper, DWPOS_FILL};
 
 /// Writes one PNG per monitor (unique names, Windows caches wallpapers by path), sets them, then removes older files.
 /// All-or-nothing: on failure the files written here are deleted and the previous wallpapers and position restored.
-pub fn apply(dir: &Path, images: Vec<(String, RgbaImage)>) -> Result<(), String> {
+/// Returns the written paths, in `images` order.
+pub fn apply(dir: &Path, images: Vec<(String, RgbaImage)>) -> Result<Vec<PathBuf>, String> {
     if images.is_empty() {
         return Err("No monitor detected".into());
     }
@@ -28,7 +29,8 @@ pub fn apply(dir: &Path, images: Vec<(String, RgbaImage)>) -> Result<(), String>
         }
         written.push(path);
     }
-    if let Err(e) = set(&images, &written) {
+    let ids: Vec<String> = images.iter().map(|(id, _)| id.clone()).collect();
+    if let Err(e) = set(&ids, &written) {
         remove(&written);
         return Err(e);
     }
@@ -40,35 +42,41 @@ pub fn apply(dir: &Path, images: Vec<(String, RgbaImage)>) -> Result<(), String>
             }
         }
     }
-    Ok(())
+    Ok(written)
 }
 
-/// Sets position and wallpapers; on failure puts back what was there before (best effort).
-fn set(images: &[(String, RgbaImage)], written: &[PathBuf]) -> Result<(), String> {
+/// Current wallpaper of a monitor; None when unset or unreadable.
+unsafe fn get(dw: &IDesktopWallpaper, id: &HSTRING) -> Option<HSTRING> {
+    dw.GetWallpaper(id).ok().and_then(|p| {
+        // A null PWSTR means no wallpaper; to_hstring would call wcslen(NULL).
+        if p.is_null() {
+            return None;
+        }
+        let s = p.to_hstring();
+        CoTaskMemFree(Some(p.0 as _));
+        Some(s)
+    })
+}
+
+/// Wallpaper shown on each monitor, in `ids` order.
+pub fn current(ids: &[String]) -> Result<Vec<Option<PathBuf>>, String> {
     let dw = desktop_wallpaper().map_err(|e| e.to_string())?;
-    let ids: Vec<HSTRING> = images.iter().map(|(id, _)| HSTRING::from(id.as_str())).collect();
+    Ok(ids.iter().map(|id| unsafe { get(&dw, &HSTRING::from(id.as_str())) }.map(|s| PathBuf::from(s.to_os_string()))).collect())
+}
+
+/// Sets position and wallpapers (`paths[i]` on monitor `ids[i]`); on failure puts back what was there before (best effort).
+pub fn set(ids: &[String], paths: &[PathBuf]) -> Result<(), String> {
+    let dw = desktop_wallpaper().map_err(|e| e.to_string())?;
+    let ids: Vec<HSTRING> = ids.iter().map(|id| HSTRING::from(id.as_str())).collect();
     unsafe {
         // Read before changing anything. An unreadable value is just not restored.
         let position = dw.GetPosition().ok();
-        let previous: Vec<Option<HSTRING>> = ids
-            .iter()
-            .map(|id| {
-                dw.GetWallpaper(id).ok().and_then(|p| {
-                    // A null PWSTR means no previous wallpaper; to_hstring would call wcslen(NULL).
-                    if p.is_null() {
-                        return None;
-                    }
-                    let s = p.to_hstring();
-                    CoTaskMemFree(Some(p.0 as _));
-                    Some(s)
-                })
-            })
-            .collect();
+        let previous: Vec<Option<HSTRING>> = ids.iter().map(|id| get(&dw, id)).collect();
         let mut changed = 0;
         let result = (|| -> windows::core::Result<()> {
             // Images match each monitor's resolution exactly, so Fill shows them 1:1.
             dw.SetPosition(DWPOS_FILL)?;
-            for (id, path) in ids.iter().zip(written) {
+            for (id, path) in ids.iter().zip(paths) {
                 dw.SetWallpaper(id, &HSTRING::from(path.as_os_str()))?;
                 changed += 1;
             }
