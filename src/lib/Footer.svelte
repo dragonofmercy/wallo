@@ -31,9 +31,9 @@
 
 <footer>
   <label class="chk autostart"><input type="checkbox" checked={autostart} onchange={toggleAutostart} /><span class="box"><svg viewBox="0 0 12 12"><path d="M2.5 6.5l2.5 2.5 4.5-5" /></svg></span>Start with Windows</label>
-  <button type="button" class="btn ghost" disabled={app.busy} onclick={close}>Cancel</button>
+  <button type="button" class="btn ghost" disabled={app.busy} onclick={close}><Icon name="close" />Cancel</button>
   <button type="button" class="btn" disabled={app.busy} onclick={() => app.apply()}><Icon name="check" />{app.busy ? "Applying..." : "Apply"}</button>
-  <button type="button" class="btn primary ok" disabled={app.busy} onclick={ok}>OK</button>
+  <button type="button" class="btn primary ok" disabled={app.busy} onclick={ok}><Icon name="checkCircle" />OK</button>
 </footer>
 
 <style>

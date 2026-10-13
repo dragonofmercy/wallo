@@ -8,7 +8,7 @@
   type Pending = { title: string; initial: string; except?: string; action: (name: string) => void };
   let pending = $state<Pending | null>(null);
 
-  const options = $derived(app.profiles.map((p) => ({ value: p.name, label: p.name })));
+  const options = $derived(app.profiles.toSorted((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" })).map((p) => ({ value: p.name, label: p.name })));
 
   async function remove() {
     if (await ask(`Delete profile "${app.profile.name}"?`, { title: "Delete profile", kind: "warning" })) app.deleteCurrent();

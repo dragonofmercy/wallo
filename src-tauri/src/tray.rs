@@ -45,7 +45,9 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
 /// One item per profile, the last applied one checked.
 fn menu(app: &AppHandle, profiles: &Profiles) -> tauri::Result<Menu<Wry>> {
     let menu = Menu::new(app)?;
-    for p in &profiles.profiles {
+    let mut sorted: Vec<_> = profiles.profiles.iter().collect();
+    sorted.sort_by_cached_key(|p| p.name.to_lowercase());
+    for p in sorted {
         let checked = profiles.last_selected.as_deref() == Some(p.name.as_str());
         // A single & would underline the next letter as a mnemonic; the id keeps the raw name.
         menu.append(&CheckMenuItem::with_id(app, format!("{PROFILE_ITEM}{}", p.name), p.name.replace('&', "&&"), true, checked, None::<&str>)?)?;
