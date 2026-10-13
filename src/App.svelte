@@ -1,6 +1,7 @@
 <script lang="ts">
   import { listen } from "@tauri-apps/api/event";
   import { onMount } from "svelte";
+  import { takeOpenOptions } from "./lib/api";
   import Adjustments from "./lib/Adjustments.svelte";
   import BackgroundMode from "./lib/BackgroundMode.svelte";
   import BusyOverlay from "./lib/BusyOverlay.svelte";
@@ -26,8 +27,17 @@
   onMount(() => {
     // The tray applied a profile: drop unsaved edits so a later Apply cannot revert it.
     const unlisten = listen("profiles-changed", () => app.init().catch((e) => (app.banner = { kind: "error", text: String(e) })));
+    // Tray "Options": the flag covers a window created by the click, the event an already open one.
+    const openOptions = () =>
+      takeOpenOptions().then(
+        (open) => open && (app.optionsOpen = true),
+        () => {},
+      );
+    openOptions();
+    const unlistenOptions = listen("open-options", openOptions);
     return () => {
       unlisten.then((f) => f());
+      unlistenOptions.then((f) => f());
     };
   });
 </script>

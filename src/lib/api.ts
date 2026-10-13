@@ -34,3 +34,6 @@ export const alignOffset = (source: Source, area: [number, number], anchor: [num
 export const applyProfiles = (profiles: Profiles) => invoke<void>("apply", { profiles: { lastSelected: profiles.lastSelected, profiles: profiles.profiles.map(cleanProfile) } });
 export const getAutostart = () => invoke<boolean>("get_autostart");
 export const setAutostart = (enabled: boolean) => invoke<void>("set_autostart", { enabled });
+export const getKeepWallpaper = () => invoke<boolean>("get_keep_wallpaper");
+export const setKeepWallpaper = (enabled: boolean) => invoke<void>("set_keep_wallpaper", { enabled });
+export const takeOpenOptions = () => invoke<boolean>("take_open_options");

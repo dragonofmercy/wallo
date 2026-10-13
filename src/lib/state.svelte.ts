@@ -10,6 +10,7 @@ class AppState {
   previews = $state<Record<string, Preview>>({});
   banner = $state<{ kind: "error" | "warning"; text: string } | null>(null);
   busy = $state(false);
+  optionsOpen = $state(false);
   update = $state<Update | null>(null);
 
   get profile(): Profile {
