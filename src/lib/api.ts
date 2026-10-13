@@ -38,4 +38,5 @@ export const getKeepWallpaper = () => invoke<boolean>("get_keep_wallpaper");
 export const setKeepWallpaper = (enabled: boolean) => invoke<void>("set_keep_wallpaper", { enabled });
 export const getCheckUpdates = () => invoke<boolean>("get_check_updates");
 export const setCheckUpdates = (enabled: boolean) => invoke<void>("set_check_updates", { enabled });
+export const openGithub = (page: "repo" | "releases") => invoke<void>("open_github", { page });
 export const takeOpenOptions = () => invoke<boolean>("take_open_options");

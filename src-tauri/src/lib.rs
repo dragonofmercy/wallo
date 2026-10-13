@@ -48,6 +48,7 @@ pub fn run() {
             commands::get_keep_wallpaper,
             commands::set_keep_wallpaper,
             commands::get_check_updates,
+            commands::open_github,
             commands::set_check_updates,
             commands::take_open_options
         ])

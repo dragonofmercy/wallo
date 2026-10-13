@@ -255,6 +255,19 @@ fn save_setting(change: impl FnOnce(&mut settings::Settings)) -> Result<(), Stri
     profile::save(&path, &s).map_err(|e| format!("Cannot save settings: {e}"))
 }
 
+const REPO_URL: &str = "https://github.com/dragonofmercy/wallo";
+
+/// Opens a fixed Wallo GitHub page in the default browser, never a URL coming from the frontend.
+#[tauri::command]
+pub fn open_github(page: &str) -> Result<(), String> {
+    let url = match page {
+        "repo" => REPO_URL.to_string(),
+        "releases" => format!("{REPO_URL}/releases"),
+        _ => return Err(format!("Unknown page: {page}")),
+    };
+    std::process::Command::new("explorer").arg(url).spawn().map(|_| ()).map_err(|e| format!("Cannot open the browser: {e}"))
+}
+
 /// True once after the tray "Options" item was clicked.
 #[tauri::command]
 pub fn take_open_options() -> bool {
