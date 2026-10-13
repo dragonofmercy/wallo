@@ -61,7 +61,7 @@
   </label>
   {#if error}<p class="error selectable">{error}</p>{/if}
   <div class="buttons">
-    <button type="button" class="btn primary" onclick={onclose}>Close</button>
+    <button type="button" class="btn ghost" onclick={onclose}>Close</button>
   </div>
 </dialog>
 
