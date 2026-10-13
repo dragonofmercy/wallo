@@ -56,8 +56,9 @@ h2,
   padding: 14px 16px;
 }
 
-/* Desktop app feel: no text selection, except in fields and in text worth copying (paths, errors). */
-body {
+/* Desktop app feel (modals included: the top layer does not inherit it): no text selection, except in fields and in text worth copying (paths, errors). */
+body,
+dialog {
   user-select: none;
   cursor: default;
 }
