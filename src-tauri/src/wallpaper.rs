@@ -4,9 +4,11 @@ use image::{RgbImage, RgbaImage};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
-use windows::core::HSTRING;
+use windows::core::{w, HSTRING};
+use windows::Win32::Foundation::{LPARAM, WPARAM};
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::UI::Shell::{IDesktopWallpaper, DWPOS_FILL};
+use windows::Win32::UI::WindowsAndMessaging::{FindWindowW, SendMessageTimeoutW, SMTO_NORMAL};
 
 /// Writes one PNG per monitor (unique names, Windows caches wallpapers by path), sets them, then removes older files.
 /// All-or-nothing: on failure the files written here are deleted and the previous wallpapers and position restored.
@@ -69,6 +71,10 @@ pub fn set(ids: &[String], paths: &[PathBuf]) -> Result<(), String> {
     let dw = desktop_wallpaper().map_err(|e| e.to_string())?;
     let ids: Vec<HSTRING> = ids.iter().map(|id| HSTRING::from(id.as_str())).collect();
     unsafe {
+        // Undocumented: 0x52C makes Progman spawn its WorkerW, which enables the fade transition on wallpaper change.
+        if let Ok(progman) = FindWindowW(w!("Progman"), None) {
+            SendMessageTimeoutW(progman, 0x52C, WPARAM(0), LPARAM(0), SMTO_NORMAL, 1000, None);
+        }
         // Read before changing anything. An unreadable value is just not restored.
         let position = dw.GetPosition().ok();
         let previous: Vec<Option<HSTRING>> = ids.iter().map(|id| get(&dw, id)).collect();
