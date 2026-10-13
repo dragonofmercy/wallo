@@ -80,6 +80,10 @@ fn tick(app: &AppHandle) -> Result<(), String> {
             wallpaper::set(&ids, &paths)
         }
         Action::Rerender => {
+            // No profiles.json means no successful apply yet (it is only written by one): nothing to keep, and load() would return a default black profile.
+            if !commands::profiles_path().exists() {
+                return Ok(());
+            }
             let loaded = profile::load(&commands::profiles_path());
             // Corrupt or unreadable file: applying would save defaults over it.
             if let Some(warning) = loaded.warning {
@@ -96,7 +100,8 @@ pub fn start(app: &AppHandle) {
     let app = app.clone();
     let handle = std::thread::spawn(move || loop {
         if ENABLED.load(Ordering::SeqCst) && !PAUSED.load(Ordering::SeqCst) {
-            if let Err(e) = tick(&app) {
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| tick(&app))).unwrap_or_else(|_| Err("unexpected error".to_string()));
+            if let Err(e) = result {
                 PAUSED.store(true, Ordering::SeqCst);
                 crate::tray::error(&app, format!("Keep wallpaper paused: {e}"));
             }
