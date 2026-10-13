@@ -1,5 +1,12 @@
 # Wallo
 
+[![Latest release](https://badgen.net/github/release/dragonofmercy/wallo/stable?icon=github)](https://github.com/dragonofmercy/wallo/releases/latest)
+[![Downloads](https://badgen.net/github/assets-dl/dragonofmercy/wallo?icon=github)](https://github.com/dragonofmercy/wallo/releases)
+[![License](https://badgen.net/github/license/dragonofmercy/wallo)](LICENSE)
+[![Tauri](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)](https://tauri.app/)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-0078D6?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
+[![Donate](https://img.shields.io/badge/Donate-Ko--fi-FF5E5B?logo=kofi&logoColor=white)](https://ko-fi.com/dragonofmercy)
+
 A lightweight wallpaper manager for Windows 10 and 11 with multiple monitors.
 
 ![Wallo](.github/screenshot.png)
@@ -66,6 +73,12 @@ cargo tauri build --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'
 2. From `main` with a clean tree, run `.\release.ps1 1.0.0`.
 
 It sets the version in `src-tauri\Cargo.toml` (the only place it lives), dates the changelog section, builds, commits, tags `v1.0.0`, pushes, and publishes the GitHub release with both installers and `latest.json`, the file the in-app updater reads.
+
+## Support
+
+If this project helps to increase your productivity, you can give me a cup of coffee :)
+
+<a href="https://ko-fi.com/dragonofmercy"><img src="https://cdn.ko-fi.com/cdn/kofi2.png?v=3" alt="Donate" width="160"></a>
 
 ## License
 
