@@ -12,6 +12,7 @@
     checkCircle: "M8 14.5a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM5.2 8.2l1.9 1.9 3.7-3.9",
     download: "M8 2.5v8M4.5 7.5L8 11l3.5-3.5M3 13.5h10",
     chevron: "M4 6l4 4 4-4",
+    sliders: "M2 4.5h12M2 11.5h12M5.5 3v3M10.5 10v3",
   };
 
   let { name, size = 15 }: { name: keyof typeof PATHS; size?: number } = $props();
