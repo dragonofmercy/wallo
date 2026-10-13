@@ -237,6 +237,12 @@ pub fn set_keep_wallpaper(enabled: bool) -> Result<(), String> {
     Ok(())
 }
 
+/// True once after the tray "Options" item was clicked.
+#[tauri::command]
+pub fn take_open_options() -> bool {
+    crate::tray::OPEN_OPTIONS.swap(false, Ordering::SeqCst)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -46,7 +46,8 @@ pub fn run() {
             commands::get_autostart,
             commands::set_autostart,
             commands::get_keep_wallpaper,
-            commands::set_keep_wallpaper
+            commands::set_keep_wallpaper,
+            commands::take_open_options
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

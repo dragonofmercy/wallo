@@ -1,5 +1,6 @@
 use crate::commands::{self, ApplyLock};
 use crate::profile::{self, Profiles};
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, WebviewWindowBuilder, Wry};
@@ -7,6 +8,9 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
 const TRAY_ID: &str = "main";
 const PROFILE_ITEM: &str = "profile:";
+
+/// Set by the "Options" item, read once by the window (`take_open_options`): a window created by the click is not listening yet when the event fires.
+pub static OPEN_OPTIONS: AtomicBool = AtomicBool::new(false);
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let loaded = profile::load(&commands::profiles_path());
@@ -21,6 +25,11 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id().as_ref() {
             "open" => show_window(app),
+            "options" => {
+                OPEN_OPTIONS.store(true, Ordering::SeqCst);
+                show_window(app);
+                let _ = app.emit("open-options", ());
+            }
             "quit" => app.exit(0),
             id => {
                 if let Some(name) = id.strip_prefix(PROFILE_ITEM) {
@@ -54,6 +63,7 @@ fn menu(app: &AppHandle, profiles: &Profiles) -> tauri::Result<Menu<Wry>> {
     }
     menu.append(&PredefinedMenuItem::separator(app)?)?;
     menu.append(&MenuItem::with_id(app, "open", "Open Wallo", true, None::<&str>)?)?;
+    menu.append(&MenuItem::with_id(app, "options", "Options", true, None::<&str>)?)?;
     menu.append(&MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?)?;
     Ok(menu)
 }
