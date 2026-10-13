@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ask } from "@tauri-apps/plugin-dialog";
+  import ConfirmDialog from "./ConfirmDialog.svelte";
   import Icon from "./Icon.svelte";
   import NameDialog from "./NameDialog.svelte";
   import Select from "./Select.svelte";
@@ -10,9 +10,7 @@
 
   const options = $derived(app.profiles.toSorted((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" })).map((p) => ({ value: p.name, label: p.name })));
 
-  async function remove() {
-    if (await ask(`Delete profile "${app.profile.name}"?`, { title: "Delete profile", kind: "warning" })) app.deleteCurrent();
-  }
+  let confirmDelete = $state(false);
 </script>
 
 {#snippet profileIcon()}
@@ -25,7 +23,7 @@
   <button type="button" class="btn" onclick={() => (pending = { title: "New Profile", initial: "", action: (n) => app.newProfile(n) })}><Icon name="plus" />New</button>
   <button type="button" class="btn" onclick={() => (pending = { title: "Rename Profile", initial: app.profile.name, except: app.profile.name, action: (n) => app.rename(n) })}><Icon name="pencil" />Rename</button>
   <button type="button" class="btn" onclick={() => (pending = { title: "Save Profile As", initial: `${app.profile.name} copy`, action: (n) => app.saveAs(n) })}><Icon name="copy" />Save As</button>
-  <button type="button" class="btn danger" onclick={remove}><Icon name="trash" />Delete</button>
+  <button type="button" class="btn danger" onclick={() => (confirmDelete = true)}><Icon name="trash" />Delete</button>
 </div>
 
 {#if pending}
@@ -39,6 +37,19 @@
       pending = null;
     }}
     oncancel={() => (pending = null)}
+  />
+{/if}
+
+{#if confirmDelete}
+  <ConfirmDialog
+    title="Delete Profile"
+    message={`Delete profile "${app.profile.name}"? This cannot be undone.`}
+    confirmLabel="Delete"
+    onconfirm={() => {
+      app.deleteCurrent();
+      confirmDelete = false;
+    }}
+    oncancel={() => (confirmDelete = false)}
   />
 {/if}
 
