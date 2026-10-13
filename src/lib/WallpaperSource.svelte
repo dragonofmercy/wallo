@@ -30,7 +30,13 @@
   });
 
   async function loadImage() {
-    const path = await open({ multiple: false, directory: false, filters: [{ name: "Images", extensions: ["jpg", "jpeg", "png", "bmp", "webp", "gif"] }] });
+    const path = await open({
+      // Opens in the current image's folder (with it preselected) instead of the last folder used.
+      defaultPath: app.source.imagePath ?? undefined,
+      multiple: false,
+      directory: false,
+      filters: [{ name: "Images", extensions: ["jpg", "jpeg", "png", "bmp", "webp", "gif"] }],
+    });
     if (typeof path === "string") app.source.imagePath = path;
   }
 </script>

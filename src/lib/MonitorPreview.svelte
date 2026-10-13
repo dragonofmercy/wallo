@@ -94,9 +94,9 @@
   }
   .num {
     position: absolute;
-    left: 10px;
-    top: 50%;
-    transform: translateY(-50%);
+    left: 8px;
+    top: 4px;
+    line-height: 1;
     font:
       700 40px Orbitron,
       sans-serif;
