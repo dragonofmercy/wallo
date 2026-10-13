@@ -36,9 +36,14 @@
 
 <dialog bind:this={dialog} oncancel={(e) => (e.preventDefault(), onclose())}>
   <h2>Options</h2>
-  <label class="chk"><input type="checkbox" checked={autostart} onchange={(e) => toggle(e, setAutostart, (v) => (autostart = v))} /><span class="box"><svg viewBox="0 0 12 12"><path d="M2.5 6.5l2.5 2.5 4.5-5" /></svg></span>Start with Windows</label>
-  <label class="chk"><input type="checkbox" checked={keep} onchange={(e) => toggle(e, setKeepWallpaper, (v) => (keep = v))} /><span class="box"><svg viewBox="0 0 12 12"><path d="M2.5 6.5l2.5 2.5 4.5-5" /></svg></span>Keep wallpaper applied</label>
-  <p class="hint">Reapplies the active profile when monitors change or another program changes the wallpaper.</p>
+  <label class="option">
+    <span class="text"><strong>Start with Windows</strong><span>Wallo starts in the tray when you sign in, without opening the window.</span></span>
+    <span class="switch"><input type="checkbox" role="switch" checked={autostart} onchange={(e) => toggle(e, setAutostart, (v) => (autostart = v))} /><span class="track"></span></span>
+  </label>
+  <label class="option">
+    <span class="text"><strong>Keep wallpaper applied</strong><span>Reapplies the active profile when monitors change or another program changes the wallpaper.</span></span>
+    <span class="switch"><input type="checkbox" role="switch" checked={keep} onchange={(e) => toggle(e, setKeepWallpaper, (v) => (keep = v))} /><span class="track"></span></span>
+  </label>
   {#if error}<p class="error selectable">{error}</p>{/if}
   <div class="buttons">
     <button type="button" class="btn primary" onclick={onclose}>Close</button>
@@ -47,14 +52,26 @@
 
 <style>
   dialog {
-    width: 360px;
+    width: 480px;
   }
-  .chk + .chk {
-    margin-top: 10px;
+  .option {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 14px 0;
+    cursor: pointer;
   }
-  .hint {
+  .option + .option {
+    border-top: 1px solid var(--line);
+  }
+  .text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .text span {
     color: var(--muted);
-    margin: 4px 0 0 28px;
   }
   .error {
     color: var(--danger);

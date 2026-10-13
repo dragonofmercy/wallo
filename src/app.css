@@ -262,6 +262,59 @@ input.field {
   transform: none;
 }
 
+/* Switch: <span class="switch"><input type="checkbox" role="switch"><span class="track"></span></span> inside a <label> */
+.switch {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.track {
+  display: block;
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  border: 1px solid var(--line2);
+  background: var(--field);
+  transition: all 0.15s;
+}
+
+.track::after {
+  content: "";
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 3px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: all 0.15s;
+}
+
+label:hover .track {
+  border-color: var(--accent);
+}
+
+.switch input:checked + .track {
+  background: var(--accent);
+  border-color: var(--accent-hi);
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.45);
+}
+
+.switch input:checked + .track::after {
+  background: #fff;
+  transform: translateX(20px);
+}
+
+.switch input:focus-visible + .track {
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.3);
+}
+
 /* Banner */
 .banner {
   display: flex;
