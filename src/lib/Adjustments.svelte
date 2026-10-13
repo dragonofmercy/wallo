@@ -19,7 +19,11 @@
     <div class="lbl">Align</div>
     <div class="anchors">
       {#each anchors as a (a.title)}
-        <button type="button" title={a.title} aria-label={a.title} disabled={!app.source.imagePath} onclick={() => app.align(a.ax, a.ay)}><span></span></button>
+        <button type="button" title={a.title} aria-label={a.title} disabled={!app.source.imagePath} onclick={() => app.align(a.ax, a.ay)}>
+          <svg viewBox="0 0 10 10" aria-hidden="true">
+            {#if a.ax || a.ay}<path d="M2 5h6M5.5 2.5L8 5l-2.5 2.5" transform="rotate({(Math.atan2(a.ay, a.ax) * 180) / Math.PI} 5 5)" />{:else}<circle class="dot" cx="5" cy="5" r="2" />{/if}
+          </svg>
+        </button>
       {/each}
     </div>
   </div>
@@ -37,36 +41,62 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px 18px;
   }
+  /* One field-like pad; the 1 px gap shows the background as dividers. */
   .anchors {
     display: grid;
-    grid-template-columns: repeat(3, 24px);
-    gap: 3px;
+    grid-template-columns: repeat(3, 30px);
+    grid-template-rows: repeat(3, 16px);
+    gap: 1px;
+    width: max-content;
+    border: 1px solid var(--line2);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--line);
+    transition: box-shadow 0.15s;
+  }
+  .anchors:hover:has(button:enabled) {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
   }
   .anchors button {
     display: grid;
     place-items: center;
-    height: 16px;
     padding: 0;
-    border: 1px solid var(--line2);
-    border-radius: 4px;
+    border: none;
     background: var(--field);
+    color: var(--dim);
     cursor: pointer;
+    transition:
+      background 0.12s,
+      color 0.12s;
   }
-  .anchors span {
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: var(--muted);
+  .anchors button:hover:enabled {
+    background: rgba(59, 130, 246, 0.22);
+    color: var(--cyan);
   }
-  .anchors button:hover:not(:disabled) {
-    border-color: var(--accent);
+  .anchors button:active:enabled {
+    background: rgba(34, 211, 238, 0.28);
   }
-  .anchors button:hover:not(:disabled) span {
-    background: var(--cyan);
+  .anchors button:focus-visible {
+    outline: none;
+    background: rgba(34, 211, 238, 0.18);
+    color: var(--cyan);
   }
   .anchors button:disabled {
-    opacity: 0.5;
+    opacity: 0.45;
     cursor: default;
+  }
+  .anchors svg {
+    width: 10px;
+    height: 10px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .anchors .dot {
+    fill: currentColor;
+    stroke: none;
   }
   .flips {
     display: flex;
