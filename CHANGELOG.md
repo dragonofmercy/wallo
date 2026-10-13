@@ -2,7 +2,7 @@
 
 All notable changes to Wallo are listed here. The format follows [Keep a Changelog](https://keepachangelog.com) and versions follow [Semantic Versioning](https://semver.org).
 
-## [Unreleased]
+## [1.1.1] - 2026-10-13
 
 - Text in dialogs can no longer be selected by accident
 
