@@ -18,7 +18,8 @@ $changelog = [IO.File]::ReadAllText($changelogPath)
 $m = [regex]::Match($changelog, '(?s)## \[Unreleased\][ \t]*\n(.*?)(?=\n## \[|\z)')
 $notes = $m.Groups[1].Value.Trim()
 if (-not $notes) { throw "CHANGELOG.md has nothing under [Unreleased]" }
-$changelog = $changelog.Remove($m.Index, $m.Length).Insert($m.Index, "## [Unreleased]`n`n## [$Version] - $(Get-Date -Format yyyy-MM-dd)`n`n$notes`n")
+# Written just before releasing; the heading becomes the version (no empty Unreleased section is kept).
+$changelog = $changelog.Remove($m.Index, $m.Length).Insert($m.Index, "## [$Version] - $(Get-Date -Format yyyy-MM-dd)`n`n$notes`n")
 
 # Cargo.toml is the only place holding the version (tauri.conf.json falls back to it).
 $cargoPath = Join-Path $PSScriptRoot "src-tauri\Cargo.toml"
