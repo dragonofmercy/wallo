@@ -9,7 +9,7 @@
 
 A lightweight wallpaper manager for Windows 10 and 11 with multiple monitors.
 
-![Wallo](.github/screenshot.png)
+![Wallo](.github/screenshot.webp)
 
 Wallo does what the Windows settings can't: put a different image on each screen, stretch one image across all of them, and fine-tune how each image is placed. Pick your settings, click **Apply**, and Wallo tucks itself into the notification area, where switching profiles takes one click.
 
