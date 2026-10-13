@@ -19,6 +19,7 @@ Wallo does what the Windows settings can't: put a different image on each screen
 - **Live preview** of every monitor, laid out like your real screens.
 - **Tray icon** - right-click it to apply any profile instantly, left-click to open Wallo. The window is fully unloaded when closed, so Wallo stays light in the background.
 - **Start with Windows** (optional) - Wallo starts in the tray at logon.
+- **Automatic updates** - when a new version is out, a banner offers to install it when you open the window. Nothing is installed without your click, and no network means no banner.
 
 ## Usage
 
@@ -52,6 +53,19 @@ Requires [Rust](https://rustup.rs), [Node.js](https://nodejs.org) and the Tauri 
 ```
 
 It installs the npm dependencies if needed, then runs `cargo tauri build`. The MSI and NSIS installers are written to `src-tauri\target\release\bundle\`.
+
+`build.ps1` signs the update files with the maintainer's key (`..\keys\updater.key`, not in the repo). Without it, build unsigned:
+
+```
+cargo tauri build --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}'
+```
+
+## Releasing
+
+1. List the changes under `## [Unreleased]` in `CHANGELOG.md`.
+2. From `main` with a clean tree, run `.\release.ps1 1.0.0`.
+
+It sets the version in `src-tauri\Cargo.toml` (the only place it lives), dates the changelog section, builds, commits, tags `v1.0.0`, pushes, and publishes the GitHub release with both installers and `latest.json`, the file the in-app updater reads.
 
 ## License
 

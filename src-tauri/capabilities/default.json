@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "enables the default permissions",
   "windows": ["main"],
-  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten", "core:window:allow-close", "dialog:allow-open", "dialog:allow-message"]
+  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten", "core:window:allow-close", "dialog:allow-open", "dialog:allow-message", "updater:default"]
 }

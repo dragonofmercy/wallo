@@ -7,6 +7,7 @@
   import Footer from "./lib/Footer.svelte";
   import MonitorPreview from "./lib/MonitorPreview.svelte";
   import ProfileBar from "./lib/ProfileBar.svelte";
+  import UpdateBanner from "./lib/UpdateBanner.svelte";
   import WallpaperSource from "./lib/WallpaperSource.svelte";
   import { app } from "./lib/state.svelte";
 
@@ -15,6 +16,7 @@
   onMount(async () => {
     try {
       await app.init();
+      app.checkUpdate();
       ready = true;
     } catch (e) {
       app.banner = { kind: "error", text: String(e) };
@@ -37,6 +39,7 @@
       <button type="button" class="btn ghost" onclick={() => (app.banner = null)}>Dismiss</button>
     </div>
   {/if}
+  {#if app.update}<UpdateBanner update={app.update} />{/if}
   {#if ready}
     <section class="card profile">
       <ProfileBar />

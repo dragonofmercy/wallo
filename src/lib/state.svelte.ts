@@ -1,3 +1,4 @@
+import { check, type Update } from "@tauri-apps/plugin-updater";
 import { alignOffset, applyProfiles, listMonitors, loadProfiles } from "./api";
 import { defaultSource, type Monitor, type Preview, type Profile, type Source } from "./types";
 
@@ -9,6 +10,7 @@ class AppState {
   previews = $state<Record<string, Preview>>({});
   banner = $state<{ kind: "error" | "warning"; text: string } | null>(null);
   busy = $state(false);
+  update = $state<Update | null>(null);
 
   get profile(): Profile {
     return this.profiles.find((p) => p.name === this.selectedName) ?? this.profiles[0];
@@ -34,6 +36,11 @@ class AppState {
     this.profiles = profiles.profiles;
     this.selectedName = profiles.profiles.some((p) => p.name === profiles.lastSelected) ? profiles.lastSelected! : profiles.profiles[0].name;
     if (warning) this.banner = { kind: "warning", text: warning };
+  }
+
+  /** Looks for a newer release (latest.json on GitHub). Offline, or no release yet: stays silent. */
+  async checkUpdate() {
+    this.update = await check({ timeout: 10000 }).catch(() => null);
   }
 
   /** Every connected monitor gets an entry, so `source` never has to create one while rendering. */

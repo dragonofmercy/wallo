@@ -21,6 +21,7 @@ pub fn run() {
             std::thread::spawn(move || tray::show_window(&app));
         }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         // Fixed-size window: only the position is remembered.
         .plugin(tauri_plugin_window_state::Builder::new().with_state_flags(StateFlags::POSITION).build())
         .manage(commands::ImageCache::default())
