@@ -7,6 +7,7 @@ All notable changes to Wallo are listed here. The format follows [Keep a Changel
 - "Start with Windows" moved to the new Options window
 - Option to keep the wallpaper applied when monitors change or another program changes it
 - Options entry in the tray menu
+- Option to turn off automatic update checks
 
 ## [1.0.0] - 2026-10-13
 

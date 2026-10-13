@@ -36,4 +36,6 @@ export const getAutostart = () => invoke<boolean>("get_autostart");
 export const setAutostart = (enabled: boolean) => invoke<void>("set_autostart", { enabled });
 export const getKeepWallpaper = () => invoke<boolean>("get_keep_wallpaper");
 export const setKeepWallpaper = (enabled: boolean) => invoke<void>("set_keep_wallpaper", { enabled });
+export const getCheckUpdates = () => invoke<boolean>("get_check_updates");
+export const setCheckUpdates = (enabled: boolean) => invoke<void>("set_check_updates", { enabled });
 export const takeOpenOptions = () => invoke<boolean>("take_open_options");

@@ -47,6 +47,8 @@ pub fn run() {
             commands::set_autostart,
             commands::get_keep_wallpaper,
             commands::set_keep_wallpaper,
+            commands::get_check_updates,
+            commands::set_check_updates,
             commands::take_open_options
         ])
         .build(tauri::generate_context!())

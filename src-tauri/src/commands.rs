@@ -232,9 +232,27 @@ pub fn get_keep_wallpaper() -> bool {
 /// Saved first: a setting that cannot be saved is not turned on.
 #[tauri::command]
 pub fn set_keep_wallpaper(enabled: bool) -> Result<(), String> {
-    profile::save(&settings::path(), &settings::Settings { keep_wallpaper: enabled }).map_err(|e| format!("Cannot save settings: {e}"))?;
+    save_setting(|s| s.keep_wallpaper = enabled)?;
     watcher::set_enabled(enabled);
     Ok(())
+}
+
+#[tauri::command]
+pub fn get_check_updates() -> bool {
+    settings::load(&settings::path()).check_updates
+}
+
+#[tauri::command]
+pub fn set_check_updates(enabled: bool) -> Result<(), String> {
+    save_setting(|s| s.check_updates = enabled)
+}
+
+/// Read-modify-write so changing one setting keeps the others.
+fn save_setting(change: impl FnOnce(&mut settings::Settings)) -> Result<(), String> {
+    let path = settings::path();
+    let mut s = settings::load(&path);
+    change(&mut s);
+    profile::save(&path, &s).map_err(|e| format!("Cannot save settings: {e}"))
 }
 
 /// True once after the tray "Options" item was clicked.

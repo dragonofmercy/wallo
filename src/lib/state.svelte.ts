@@ -1,5 +1,5 @@
 import { check, type Update } from "@tauri-apps/plugin-updater";
-import { alignOffset, applyProfiles, listMonitors, loadProfiles } from "./api";
+import { alignOffset, applyProfiles, getCheckUpdates, listMonitors, loadProfiles } from "./api";
 import { defaultSource, type Monitor, type Preview, type Profile, type Source } from "./types";
 
 class AppState {
@@ -39,8 +39,9 @@ class AppState {
     if (warning) this.banner = { kind: "warning", text: warning };
   }
 
-  /** Looks for a newer release (latest.json on GitHub). Offline, or no release yet: stays silent. */
+  /** Looks for a newer release (latest.json on GitHub) unless turned off in Options. Offline, or no release yet: stays silent. */
   async checkUpdate() {
+    if (!(await getCheckUpdates().catch(() => true))) return;
     this.update = await check({ timeout: 10000 }).catch(() => null);
   }
 
