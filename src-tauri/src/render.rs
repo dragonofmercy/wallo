@@ -69,6 +69,24 @@ pub fn render_area(img: &RgbaImage, native: (u32, u32), src: &Source, area: (u32
     canvas
 }
 
+/// Offsets that put the layer's edge on the area's edge, per axis: -1 = left/top, 0 = center, 1 = right/bottom.
+/// Uses the rotated layer's bounding box; tiles align one tile instead (they ignore rotation).
+pub fn align_offset(src: &Source, native: (u32, u32), area: (u32, u32), anchor: (i8, i8)) -> (i32, i32) {
+    let (sx, sy) = placement(src.sizing, src.no_upscale, native.0, native.1, area.0, area.1);
+    let s = src.scale as f64 / 100.0;
+    let (lw, lh) = (native.0 as f64 * sx * s, native.1 as f64 * sy * s);
+    let (aw, ah) = (area.0 as f64, area.1 as f64);
+    let (ax, ay) = (anchor.0 as f64, anchor.1 as f64);
+    let (ox, oy) = if src.sizing == Sizing::Tile {
+        ((ax + 1.0) * (aw - lw) / 2.0, (ay + 1.0) * (ah - lh) / 2.0)
+    } else {
+        let (sin, cos) = (src.rotation as f64).to_radians().sin_cos();
+        let (bw, bh) = (lw * cos.abs() + lh * sin.abs(), lw * sin.abs() + lh * cos.abs());
+        (ax * (aw - bw) / 2.0, ay * (ah - bh) / 2.0)
+    };
+    (ox.round() as i32, oy.round() as i32)
+}
+
 /// Draws the part of the layer `(lx, ly, lw, lh)` (canvas coordinates, before rotation) that intersects `region` `(x0, y0, x1, y1)`,
 /// rotated clockwise by `theta` radians around the layer center. Only the matching source pixels are read, so cost stays bounded by the canvas.
 /// Downscales resize the crop; upscales warp it bilinearly (the resized piece would otherwise be unbounded).
@@ -228,6 +246,28 @@ fn render_source(src: &Source, area: (u32, u32), k: f64, filter: FilterType, loa
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn align_puts_scaled_layer_on_edges() {
+        let s = Source { scale: 300.0, ..src(Sizing::Center) };
+        let img = halves();
+        // 4x2 at 300% = 12x6 in an 8x4 area.
+        assert_eq!(align_offset(&s, (4, 2), (8, 4), (-1, -1)), (2, 1));
+        assert_eq!(align_offset(&s, (4, 2), (8, 4), (1, 0)), (-2, 0));
+        let left = area(&img, &Source { offset_x: 2, ..s.clone() }, 8, 4);
+        let right = area(&img, &Source { offset_x: -2, ..s.clone() }, 8, 4);
+        assert!(is_red(left.get_pixel(0, 0)) && is_blue(right.get_pixel(7, 0)));
+        // 90 degrees swaps the bounding box: 6x12.
+        assert_eq!(align_offset(&Source { rotation: 90.0, ..s }, (4, 2), (8, 4), (1, 1)), (1, -4));
+    }
+
+    #[test]
+    fn align_tile_starts_a_tile_on_the_edge() {
+        let t = src(Sizing::Tile);
+        assert_eq!(align_offset(&t, (4, 2), (10, 4), (-1, -1)), (0, 0));
+        assert_eq!(align_offset(&t, (4, 2), (10, 4), (0, 0)), (3, 1));
+        assert_eq!(align_offset(&t, (4, 2), (10, 4), (1, 1)), (6, 2));
+    }
 
     #[test]
     fn center_and_tile_keep_native_size() {

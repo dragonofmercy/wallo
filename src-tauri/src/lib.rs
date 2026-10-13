@@ -37,6 +37,7 @@ pub fn run() {
             commands::list_monitors,
             commands::load_profiles,
             commands::render_preview,
+            commands::align_offset,
             commands::apply,
             commands::get_autostart,
             commands::set_autostart

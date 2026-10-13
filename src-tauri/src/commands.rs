@@ -1,6 +1,6 @@
 use crate::monitors::{self, Monitor};
-use crate::profile::{self, Profile, Profiles};
-use crate::render::{render_profile, Rendered};
+use crate::profile::{self, Profile, Profiles, Source};
+use crate::render::{self, render_profile, Rendered};
 use crate::wallpaper;
 use auto_launch::{AutoLaunch, AutoLaunchBuilder, WindowsEnableMode};
 use base64::Engine;
@@ -135,6 +135,18 @@ pub async fn render_preview(cache: State<'_, ImageCache>, profile: Profile, moni
                 })
             })
             .collect()
+    })
+    .await
+}
+
+/// Offsets aligning `source` in an `area` of screen pixels (see `render::align_offset`). Reads only the image header.
+#[tauri::command]
+pub async fn align_offset(source: Source, area: (u32, u32), anchor: (i8, i8)) -> Result<(i32, i32), String> {
+    blocking(move || {
+        let path = source.image_path.clone().ok_or("No image selected")?;
+        let err = |e: &dyn std::fmt::Display| format!("{}: {e}", path.display());
+        let native = ImageReader::open(&path).map_err(|e| err(&e))?.with_guessed_format().map_err(|e| err(&e))?.into_dimensions().map_err(|e| err(&e))?;
+        Ok(render::align_offset(&source.clamped(), native, area, anchor))
     })
     .await
 }

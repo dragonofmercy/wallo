@@ -1,4 +1,4 @@
-import { applyProfiles, listMonitors, loadProfiles } from "./api";
+import { alignOffset, applyProfiles, listMonitors, loadProfiles } from "./api";
 import { defaultSource, type Monitor, type Preview, type Profile, type Source } from "./types";
 
 class AppState {
@@ -72,6 +72,19 @@ class AppState {
     this.profiles = this.profiles.filter((p) => p.name !== name);
     if (this.profiles.length === 0) this.newProfile("Default");
     this.selectedName = this.profiles[0].name;
+  }
+
+  /** Sets the offsets so the image touches an edge (-1/1) or is centered (0) on each axis, in the area it is rendered in. */
+  async align(ax: number, ay: number) {
+    const src = this.source;
+    const ms = this.profile.mode === "span" ? this.monitors : this.monitors.filter((m) => m.id === this.selectedMonitorId);
+    const w = Math.max(...ms.map((m) => m.x + m.width)) - Math.min(...ms.map((m) => m.x));
+    const h = Math.max(...ms.map((m) => m.y + m.height)) - Math.min(...ms.map((m) => m.y));
+    try {
+      [src.offsetX, src.offsetY] = await alignOffset(src, [w, h], [ax, ay]);
+    } catch (e) {
+      this.banner = { kind: "error", text: String(e) };
+    }
   }
 
   /** Saves every profile and applies the selected one. Returns false (and shows the error) on failure. */
