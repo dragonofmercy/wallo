@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import logo from "../../src-tauri/icons/icon.svg";
   import { openGithub } from "./api";
+  import Icon from "./Icon.svelte";
 
   let { onclose }: { onclose: () => void } = $props();
 
@@ -16,7 +17,11 @@
     () => {},
   );
 
-  const open = (page: "repo" | "releases") => openGithub(page).catch((e) => (error = String(e)));
+  // The href is only shown on hover: the backend opens the page in the default browser.
+  function open(e: MouseEvent, page: "repo" | "releases") {
+    e.preventDefault();
+    openGithub(page).catch((err) => (error = String(err)));
+  }
 </script>
 
 <dialog bind:this={dialog} oncancel={(e) => (e.preventDefault(), onclose())}>
@@ -29,8 +34,8 @@
   </div>
   <p>Windows wallpaper manager. MIT License.</p>
   <div class="links">
-    <button type="button" class="btn" onclick={() => open("repo")}>GitHub</button>
-    <button type="button" class="btn" onclick={() => open("releases")}>Release notes</button>
+    <a href="https://github.com/dragonofmercy/wallo" onclick={(e) => open(e, "repo")}>GitHub<Icon name="external" size={13} /></a>
+    <a href="https://github.com/dragonofmercy/wallo/releases" onclick={(e) => open(e, "releases")}>Release notes<Icon name="external" size={13} /></a>
   </div>
   {#if error}<p class="error selectable">{error}</p>{/if}
   <div class="buttons">
@@ -59,7 +64,23 @@
   }
   .links {
     display: flex;
-    gap: 8px;
+    gap: 20px;
+  }
+  a {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--accent-hi);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+  a:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 2px;
+    border-radius: 3px;
   }
   .error {
     color: var(--danger);
