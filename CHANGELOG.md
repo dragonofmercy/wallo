@@ -4,6 +4,8 @@ All notable changes to Wallo are listed here. The format follows [Keep a Changel
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-13
+
 - New Options window, opened from the main window or the tray menu
 - Keep wallpaper applied: Wallo puts your wallpaper back when monitors change or another program replaces it
 - Automatic update checks can be turned off
