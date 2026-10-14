@@ -216,6 +216,10 @@ pub fn get_autostart() -> Result<bool, String> {
 
 #[tauri::command]
 pub fn set_autostart(enabled: bool) -> Result<(), String> {
+    // A dev build would register target\debug\wallo.exe, which opens a console window at every sign-in.
+    if enabled && cfg!(debug_assertions) {
+        return Err("Start with Windows is disabled in dev builds".into());
+    }
     let launch = autolaunch()?;
     if enabled { launch.enable() } else { launch.disable() }.map_err(|e| e.to_string())?;
     if !enabled && launch.is_enabled().map_err(|e| e.to_string())? {
