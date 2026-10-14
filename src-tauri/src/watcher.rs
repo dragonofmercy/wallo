@@ -9,6 +9,8 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
 const INTERVAL: Duration = Duration::from_secs(10);
+/// Lets network drives mount before the first check at login.
+const FIRST_DELAY: Duration = Duration::from_secs(30);
 
 static ENABLED: AtomicBool = AtomicBool::new(false);
 /// Set after a failed reapply so its error shows once (a missing source image pauses silently); cleared by any successful apply, by re-enabling or by a restart.
@@ -115,19 +117,22 @@ fn tick(app: &AppHandle) -> Result<(), String> {
     }
 }
 
-/// Starts the polling thread; the first check runs at once (reapplies the profile at startup when enabled).
+/// Starts the polling thread; the first check runs after `FIRST_DELAY` (sooner if re-enabled meanwhile).
 pub fn start(app: &AppHandle) {
     ENABLED.store(settings::load(&settings::path()).keep_wallpaper, Ordering::SeqCst);
     let app = app.clone();
-    let handle = std::thread::spawn(move || loop {
-        if ENABLED.load(Ordering::SeqCst) && !PAUSED.load(Ordering::SeqCst) {
-            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| tick(&app))).unwrap_or_else(|_| Err("unexpected error".to_string()));
-            if let Err(e) = result {
-                PAUSED.store(true, Ordering::SeqCst);
-                crate::tray::error(&app, format!("Keep wallpaper paused: {e}"));
+    let handle = std::thread::spawn(move || {
+        std::thread::park_timeout(FIRST_DELAY);
+        loop {
+            if ENABLED.load(Ordering::SeqCst) && !PAUSED.load(Ordering::SeqCst) {
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| tick(&app))).unwrap_or_else(|_| Err("unexpected error".to_string()));
+                if let Err(e) = result {
+                    PAUSED.store(true, Ordering::SeqCst);
+                    crate::tray::error(&app, format!("Keep wallpaper paused: {e}"));
+                }
             }
+            std::thread::park_timeout(INTERVAL);
         }
-        std::thread::park_timeout(INTERVAL);
     });
     let _ = THREAD.set(handle.thread().clone());
 }
