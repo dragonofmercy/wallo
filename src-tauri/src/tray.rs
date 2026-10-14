@@ -111,7 +111,7 @@ fn apply_from_tray(app: &AppHandle, name: String) {
             } else {
                 let mut profiles = loaded.profiles;
                 profiles.last_selected = Some(name);
-                commands::apply_now(&profiles)
+                commands::apply_now(&profiles).map_err(String::from)
             };
             match result {
                 Ok(()) => {

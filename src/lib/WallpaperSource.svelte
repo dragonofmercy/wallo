@@ -53,7 +53,7 @@
   <button type="button" class="btn" onclick={loadImage}><Icon name="folder" />Load Image</button>
   <!-- Fixed height (two single lines): a varying height here would resize the monitor preview above. -->
   <div class="meta" title={app.sourceError ?? app.source.imagePath ?? ""}>
-    <div class="name" class:muted={!app.source.imagePath}>{app.source.imagePath ? file.name : "No image"}</div>
+    <div class="name" class:muted={!app.source.imagePath} class:error={app.sourceError}>{app.source.imagePath ? file.name : "No image"}</div>
     {#if app.sourceError}
       <div class="line error">{app.sourceError}</div>
     {:else if app.source.imagePath}

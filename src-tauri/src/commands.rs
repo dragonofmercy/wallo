@@ -151,8 +151,34 @@ pub async fn align_offset(source: Source, area: (u32, u32), anchor: (i8, i8)) ->
     .await
 }
 
+pub(crate) enum ApplyError {
+    /// A source image could not be loaded (missing file, network drive not mounted yet...).
+    Source(String),
+    Other(String),
+}
+
+impl From<String> for ApplyError {
+    fn from(e: String) -> Self {
+        ApplyError::Other(e)
+    }
+}
+
+impl From<&str> for ApplyError {
+    fn from(e: &str) -> Self {
+        ApplyError::Other(e.into())
+    }
+}
+
+impl From<ApplyError> for String {
+    fn from(e: ApplyError) -> Self {
+        match e {
+            ApplyError::Source(e) | ApplyError::Other(e) => e,
+        }
+    }
+}
+
 /// Renders and applies the selected profile, then saves `profiles` (a failed apply saves nothing). Blocking; the caller holds the apply lock.
-pub(crate) fn apply_now(profiles: &Profiles) -> Result<(), String> {
+pub(crate) fn apply_now(profiles: &Profiles) -> Result<(), ApplyError> {
     let selected = profiles.selected().ok_or("No profile selected")?;
     let monitors = monitors::list()?;
     if monitors.is_empty() {
@@ -172,14 +198,14 @@ pub(crate) fn apply_now(profiles: &Profiles) -> Result<(), String> {
     };
     let rendered = render_profile(selected, &monitors, 1.0, FilterType::Lanczos3, &load);
     if let Some(error) = rendered.iter().find_map(|r| r.error.clone()) {
-        return Err(error);
+        return Err(ApplyError::Source(error));
     }
     let ids: Vec<String> = rendered.iter().map(|r| r.id.clone()).collect();
     let images: Vec<(String, RgbaImage)> = rendered.into_iter().map(|r| (r.id, r.image)).collect();
     let files = wallpaper::apply(&data_dir().join("rendered"), images)?;
     // Before saving: the wallpapers are on screen even if profiles.json cannot be written.
     watcher::record(monitors, ids.into_iter().zip(files).collect());
-    profile::save(&profiles_path(), profiles).map_err(|e| format!("Wallpapers applied, but profiles could not be saved: {e}"))
+    profile::save(&profiles_path(), profiles).map_err(|e| format!("Wallpapers applied, but profiles could not be saved: {e}").into())
 }
 
 #[tauri::command]
@@ -190,7 +216,7 @@ pub async fn apply(app: AppHandle, blocked: State<'_, SaveBlocked>, lock: State<
     let lock = lock.0.clone();
     blocking(move || {
         let _guard = lock_apply(&lock).ok_or("An apply is already running")?;
-        apply_now(&profiles)
+        Ok(apply_now(&profiles)?)
     })
     .await?;
     crate::tray::refresh_menu(&app);

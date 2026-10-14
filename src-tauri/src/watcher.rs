@@ -1,4 +1,4 @@
-use crate::commands::{self, ApplyLock};
+use crate::commands::{self, ApplyError, ApplyLock};
 use crate::monitors::{self, Monitor};
 use crate::{profile, settings, wallpaper};
 use std::path::{Path, PathBuf};
@@ -11,7 +11,7 @@ use tauri::{AppHandle, Manager};
 const INTERVAL: Duration = Duration::from_secs(10);
 
 static ENABLED: AtomicBool = AtomicBool::new(false);
-/// Set after a failed reapply so its error shows once; cleared by any successful apply or by re-enabling.
+/// Set after a failed reapply so its error shows once (a missing source image pauses silently); cleared by any successful apply, by re-enabling or by a restart.
 static PAUSED: AtomicBool = AtomicBool::new(false);
 static LAST: Mutex<Option<Applied>> = Mutex::new(None);
 static THREAD: OnceLock<Thread> = OnceLock::new();
@@ -103,7 +103,14 @@ fn tick(app: &AppHandle) -> Result<(), String> {
             if let Some(warning) = loaded.warning {
                 return Err(warning);
             }
-            commands::apply_now(&loaded.profiles)
+            match commands::apply_now(&loaded.profiles) {
+                // Source missing (e.g. network drive not mounted): keep what is on screen, no dialog, no retry until the next apply.
+                Err(ApplyError::Source(_)) => {
+                    PAUSED.store(true, Ordering::SeqCst);
+                    Ok(())
+                }
+                r => r.map_err(String::from),
+            }
         }
     }
 }
