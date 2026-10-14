@@ -59,6 +59,13 @@ pub fn decide(last: Option<&Applied>, monitors: &[Monitor], current: &[Option<Pa
     }
 }
 
+/// Nothing recorded (fresh start): adopts our PNGs still on screen from a previous run, so startup does not re-read the sources (maybe on a network drive not mounted yet).
+fn adopt(monitors: &[Monitor], current: &[Option<PathBuf>], dir: &Path, exists: impl Fn(&Path) -> bool) -> Option<Applied> {
+    let ours = |p: &PathBuf| p.parent().is_some_and(|d| d.as_os_str().eq_ignore_ascii_case(dir.as_os_str())) && exists(p);
+    let files = monitors.iter().zip(current).map(|(m, cur)| cur.as_ref().filter(|p| ours(p)).map(|p| (m.id.clone(), p.clone()))).collect::<Option<Vec<_>>>()?;
+    (current.len() == monitors.len()).then(|| Applied { monitors: monitors.to_vec(), files })
+}
+
 /// One check. Busy apply lock, unlisted monitors or no monitor (display sleep): skip until the next tick.
 fn tick(app: &AppHandle) -> Result<(), String> {
     let lock = app.state::<ApplyLock>().0.clone();
@@ -67,7 +74,14 @@ fn tick(app: &AppHandle) -> Result<(), String> {
     if monitors.is_empty() {
         return Ok(());
     }
-    let last = LAST.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    let mut last = LAST.lock().unwrap_or_else(|e| e.into_inner()).clone();
+    if last.is_none() {
+        let shown = wallpaper::current(&monitors.iter().map(|m| m.id.clone()).collect::<Vec<_>>())?;
+        if let Some(a) = adopt(&monitors, &shown, &commands::data_dir().join("rendered"), Path::exists) {
+            record(a.monitors.clone(), a.files.clone());
+            last = Some(a);
+        }
+    }
     let current = match &last {
         Some(l) => wallpaper::current(&l.files.iter().map(|(id, _)| id.clone()).collect::<Vec<_>>())?,
         None => Vec::new(),
@@ -188,6 +202,18 @@ mod tests {
         let a = applied();
         let cur = vec![Some(PathBuf::from(r"C:\other.jpg")), None];
         assert_eq!(decide(Some(&a), &a.monitors, &cur, |p| !p.ends_with("1-0.png")), Action::Rerender);
+    }
+
+    #[test]
+    fn adopt_only_our_existing_pngs() {
+        let mons = applied().monitors;
+        let dir = Path::new(r"C:\r");
+        let a = adopt(&mons, &shown(), dir, |_| true).unwrap();
+        assert_eq!(a.files, applied().files);
+        assert!(adopt(&mons, &[Some(PathBuf::from(r"C:\r\1-0.png")), Some(PathBuf::from(r"C:\other.jpg"))], dir, |_| true).is_none());
+        assert!(adopt(&mons, &[Some(PathBuf::from(r"C:\r\1-0.png")), None], dir, |_| true).is_none());
+        assert!(adopt(&mons, &shown(), dir, |p| !p.ends_with("1-1.png")).is_none());
+        assert!(adopt(&mons, &shown()[..1], dir, |_| true).is_none());
     }
 
     #[test]
