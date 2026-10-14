@@ -2,7 +2,7 @@
 
 All notable changes to Wallo are listed here. The format follows [Keep a Changelog](https://keepachangelog.com) and versions follow [Semantic Versioning](https://semver.org).
 
-## [Unreleased]
+## [1.1.2] - 2026-10-14
 
 - Keep wallpaper applied no longer shows an error at startup when an image is on a network drive that is not connected yet
 - A missing image is shown with its name in red
