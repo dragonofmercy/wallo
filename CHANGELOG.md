@@ -2,6 +2,12 @@
 
 All notable changes to Wallo are listed here. The format follows [Keep a Changelog](https://keepachangelog.com) and versions follow [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+- Faster Apply, using less memory with large images
+- Smoother preview while changing settings
+- Error messages can be copied with a right-click
+
 ## [1.1.2] - 2026-10-14
 
 - Keep wallpaper applied no longer shows an error at startup when an image is on a network drive that is not connected yet
