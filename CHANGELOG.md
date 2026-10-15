@@ -2,7 +2,7 @@
 
 All notable changes to Wallo are listed here. The format follows [Keep a Changelog](https://keepachangelog.com) and versions follow [Semantic Versioning](https://semver.org).
 
-## [Unreleased]
+## [1.1.3] - 2026-10-15
 
 - Faster Apply, using less memory with large images
 - Smoother preview while changing settings
