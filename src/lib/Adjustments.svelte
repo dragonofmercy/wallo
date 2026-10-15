@@ -2,7 +2,7 @@
   import Icon from "./Icon.svelte";
   import NumberField from "./NumberField.svelte";
   import { app } from "./state.svelte";
-  import { defaultAdjustments } from "./types";
+  import { defaultAdjustments, RANGES } from "./types";
 
   const ROWS = ["top", "", "bottom"];
   const COLS = ["left", "", "right"];
@@ -10,11 +10,11 @@
 </script>
 
 <div class="grid">
-  <div><NumberField label="Scale" unit="%" min={1} max={1000} decimals={2} bind:value={app.source.scale} /></div>
-  <div><NumberField label="Rotation" unit="deg" min={-360} max={360} disabled={app.source.sizing === "tile"} bind:value={app.source.rotation} /></div>
-  <div><NumberField label="Move horizontal" unit="px" min={-10000} max={10000} bind:value={app.source.offsetX} /></div>
-  <div><NumberField label="Move vertical" unit="px" min={-10000} max={10000} bind:value={app.source.offsetY} /></div>
-  <div><NumberField label="Blur amount" min={0} max={100} bind:value={app.source.blur} /></div>
+  <div><NumberField label="Scale" unit="%" {...RANGES.scale} decimals={2} bind:value={app.source.scale} /></div>
+  <div><NumberField label="Rotation" unit="deg" {...RANGES.rotation} disabled={app.source.sizing === "tile"} bind:value={app.source.rotation} /></div>
+  <div><NumberField label="Move horizontal" unit="px" {...RANGES.offset} bind:value={app.source.offsetX} /></div>
+  <div><NumberField label="Move vertical" unit="px" {...RANGES.offset} bind:value={app.source.offsetY} /></div>
+  <div><NumberField label="Blur amount" {...RANGES.blur} bind:value={app.source.blur} /></div>
   <div>
     <div class="lbl">Align</div>
     <div class="anchors">
@@ -55,7 +55,7 @@
     transition: box-shadow 0.15s;
   }
   .anchors:hover:has(button:enabled) {
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+    box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.14);
   }
   .anchors button {
     display: grid;
@@ -70,15 +70,15 @@
       color 0.12s;
   }
   .anchors button:hover:enabled {
-    background: rgba(59, 130, 246, 0.22);
+    background: rgba(var(--accent-rgb), 0.22);
     color: var(--cyan);
   }
   .anchors button:active:enabled {
-    background: rgba(34, 211, 238, 0.28);
+    background: rgba(var(--cyan-rgb), 0.28);
   }
   .anchors button:focus-visible {
     outline: none;
-    background: rgba(34, 211, 238, 0.18);
+    background: rgba(var(--cyan-rgb), 0.18);
     color: var(--cyan);
   }
   .anchors button:disabled {

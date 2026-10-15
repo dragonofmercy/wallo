@@ -19,7 +19,7 @@
       });
     } catch (e) {
       progress = null;
-      app.banner = { kind: "error", text: `Update failed: ${e}` };
+      app.fail(e, "Update failed: ");
     }
   }
 </script>
@@ -41,9 +41,9 @@
     gap: 12px;
     padding: 8px 8px 8px 12px;
     border-radius: 10px;
-    border: 1px solid rgba(34, 211, 238, 0.45);
-    background: linear-gradient(90deg, rgba(34, 211, 238, 0.14), rgba(59, 130, 246, 0.06));
-    box-shadow: 0 0 18px rgba(34, 211, 238, 0.12);
+    border: 1px solid rgba(var(--cyan-rgb), 0.45);
+    background: linear-gradient(90deg, rgba(var(--cyan-rgb), 0.14), rgba(var(--accent-rgb), 0.06));
+    box-shadow: 0 0 18px rgba(var(--cyan-rgb), 0.12);
   }
   .ico {
     display: grid;
@@ -52,8 +52,8 @@
     height: 32px;
     border-radius: 50%;
     color: var(--cyan);
-    background: rgba(34, 211, 238, 0.14);
-    border: 1px solid rgba(34, 211, 238, 0.35);
+    background: rgba(var(--cyan-rgb), 0.14);
+    border: 1px solid rgba(var(--cyan-rgb), 0.35);
   }
   .text {
     flex: 1;

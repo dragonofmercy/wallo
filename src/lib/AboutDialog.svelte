@@ -82,13 +82,4 @@
     outline-offset: 2px;
     border-radius: 3px;
   }
-  .error {
-    color: var(--danger);
-    margin: 10px 0 0;
-  }
-  .buttons {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 18px;
-  }
 </style>

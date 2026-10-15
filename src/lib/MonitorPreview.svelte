@@ -1,18 +1,14 @@
 <script lang="ts">
   import { renderPreview } from "./api";
   import { app } from "./state.svelte";
-  import type { Monitor, Profile } from "./types";
+  import { monitorBounds, type Monitor, type Profile } from "./types";
 
   let width = $state(0);
   let height = $state(0);
   const PAD = 16;
 
   let bounds = $derived.by(() => {
-    const ms = app.monitors;
-    const x0 = Math.min(...ms.map((m) => m.x));
-    const y0 = Math.min(...ms.map((m) => m.y));
-    const w = Math.max(...ms.map((m) => m.x + m.width)) - x0;
-    const h = Math.max(...ms.map((m) => m.y + m.height)) - y0;
+    const { x0, y0, w, h } = monitorBounds(app.monitors);
     const f = Math.min((width - 2 * PAD) / w, (height - 2 * PAD) / h);
     return { x0, y0, f, left: (width - w * f) / 2, top: (height - h * f) / 2 };
   });
@@ -25,19 +21,24 @@
   const selected = (m: Monitor) => app.profile.mode !== "perMonitor" || m.id === app.selectedMonitorId;
 
   let seq = 0;
+  // One render at a time: a request superseded while waiting is skipped instead of rendered for nothing.
+  let queue = Promise.resolve();
   $effect(() => {
     const profile = $state.snapshot(app.profile) as Profile;
     const monitors = $state.snapshot(app.monitors) as Monitor[];
     const target = Math.round(width * devicePixelRatio);
     if (!monitors.length || target <= 0) return;
     const id = ++seq;
-    const timer = setTimeout(async () => {
-      try {
-        const previews = await renderPreview(profile, monitors, target);
-        if (id === seq) app.previews = Object.fromEntries(previews.map((p) => [p.id, p]));
-      } catch (e) {
-        if (id === seq) app.banner = { kind: "error", text: String(e) };
-      }
+    const timer = setTimeout(() => {
+      queue = queue.then(async () => {
+        if (id !== seq) return;
+        try {
+          const previews = await renderPreview(profile, monitors, target);
+          if (id === seq) app.previews = Object.fromEntries(previews.map((p) => [p.id, p]));
+        } catch (e) {
+          if (id === seq) app.fail(e);
+        }
+      });
     }, 150);
     return () => clearTimeout(timer);
   });
@@ -84,8 +85,8 @@
   .monitor.selected {
     border-color: var(--cyan);
     box-shadow:
-      0 0 0 1px rgba(34, 211, 238, 0.35),
-      0 0 22px rgba(34, 211, 238, 0.35);
+      0 0 0 1px rgba(var(--cyan-rgb), 0.35),
+      0 0 22px rgba(var(--cyan-rgb), 0.35);
   }
   img {
     width: 100%;
@@ -115,7 +116,7 @@
       sans-serif;
     color: #cffafe;
     background: rgba(8, 51, 68, 0.8);
-    border: 1px solid rgba(34, 211, 238, 0.4);
+    border: 1px solid rgba(var(--cyan-rgb), 0.4);
     pointer-events: none;
   }
 </style>

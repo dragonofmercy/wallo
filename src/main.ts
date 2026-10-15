@@ -7,9 +7,9 @@ import "./app.css";
 import { mount } from "svelte";
 import App from "./App.svelte";
 
-// No browser context menu, except in inputs (copy/paste). Dev tools stay reachable with Ctrl+Shift+I in dev.
+// No browser context menu, except in inputs and selectable text (copy/paste). Dev tools stay reachable with Ctrl+Shift+I in dev.
 document.addEventListener("contextmenu", (e) => {
-  if (!(e.target instanceof HTMLInputElement)) e.preventDefault();
+  if (!(e.target instanceof Element && e.target.closest("input, .selectable"))) e.preventDefault();
 });
 
 const app = mount(App, { target: document.getElementById("app")! });

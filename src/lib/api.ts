@@ -1,8 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Monitor, Preview, Profile, Profiles, Source } from "./types";
+import { defaultAdjustments as d, RANGES, type Monitor, type Preview, type Profile, type Profiles, type Source } from "./types";
 
 /** Coerces empty/invalid inputs (Svelte binds null for an empty number field) to defaults and clamps to the UI ranges. */
-function num(v: unknown, def: number, min: number, max: number, int = false): number {
+function num(v: unknown, def: number, { min, max }: { min: number; max: number }, int = false): number {
   const n = typeof v === "number" && Number.isFinite(v) ? v : def;
   const c = Math.min(max, Math.max(min, n));
   return int ? Math.round(c) : c;
@@ -13,11 +13,11 @@ export function cleanSource(s: Source): Source {
     imagePath: s.imagePath || null,
     sizing: s.sizing,
     noUpscale: !!s.noUpscale,
-    scale: num(s.scale, 100, 1, 1000),
-    rotation: num(s.rotation, 0, -360, 360),
-    offsetX: num(s.offsetX, 0, -10000, 10000, true),
-    offsetY: num(s.offsetY, 0, -10000, 10000, true),
-    blur: num(s.blur, 0, 0, 100),
+    scale: num(s.scale, d.scale, RANGES.scale),
+    rotation: num(s.rotation, d.rotation, RANGES.rotation),
+    offsetX: num(s.offsetX, d.offsetX, RANGES.offset, true),
+    offsetY: num(s.offsetY, d.offsetY, RANGES.offset, true),
+    blur: num(s.blur, d.blur, RANGES.blur),
     flipH: !!s.flipH,
     flipV: !!s.flipV,
   };

@@ -37,13 +37,10 @@
     width: 100%;
   }
   .error {
-    color: var(--danger);
     min-height: 1.2em;
-    margin: 6px 0;
+    margin: 6px 0 0;
   }
   .buttons {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
+    margin-top: 6px;
   }
 </style>

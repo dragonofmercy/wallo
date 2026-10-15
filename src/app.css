@@ -9,8 +9,10 @@
   --muted: #8da2bf;
   --dim: #5d7391;
   --accent: #3b82f6;
+  --accent-rgb: 59, 130, 246;
   --accent-hi: #5b9bff;
   --cyan: #22d3ee;
+  --cyan-rgb: 34, 211, 238;
   --danger: #f87171;
   --warn: #fbbf24;
   color-scheme: dark;
@@ -99,14 +101,14 @@ input,
 
 .btn:hover:not(:disabled) {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.14);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.14);
   background: rgba(22, 44, 78, 0.95);
 }
 
 .btn:focus-visible {
   outline: none;
   border-color: var(--cyan);
-  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.25);
+  box-shadow: 0 0 0 3px rgba(var(--cyan-rgb), 0.25);
 }
 
 .btn:disabled {
@@ -118,12 +120,12 @@ input,
   background: var(--accent);
   border-color: var(--accent-hi);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+  box-shadow: 0 4px 14px rgba(var(--accent-rgb), 0.35);
 }
 
 .btn.primary:hover:not(:disabled) {
   background: #4f8ff7;
-  box-shadow: 0 4px 18px rgba(59, 130, 246, 0.5);
+  box-shadow: 0 4px 18px rgba(var(--accent-rgb), 0.5);
 }
 
 .btn.ghost {
@@ -173,7 +175,7 @@ input,
 .field:focus-visible {
   outline: none;
   border-color: var(--cyan);
-  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.15);
+  box-shadow: 0 0 0 3px rgba(var(--cyan-rgb), 0.15);
 }
 
 input.field {
@@ -191,7 +193,8 @@ input.field {
   font-weight: 500;
 }
 
-.chk input {
+.chk input,
+.switch input {
   position: absolute;
   opacity: 0;
   width: 1px;
@@ -228,10 +231,11 @@ input.field {
   border-color: var(--accent);
 }
 
-.chk input:checked + .box {
+.chk input:checked + .box,
+.switch input:checked + .track {
   background: var(--accent);
   border-color: var(--accent-hi);
-  box-shadow: 0 0 10px rgba(59, 130, 246, 0.45);
+  box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.45);
 }
 
 .chk input:checked + .box svg {
@@ -239,8 +243,9 @@ input.field {
   transform: none;
 }
 
-.chk input:focus-visible + .box {
-  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.3);
+.chk input:focus-visible + .box,
+.switch input:focus-visible + .track {
+  box-shadow: 0 0 0 3px rgba(var(--cyan-rgb), 0.3);
 }
 
 .chk.radio .box {
@@ -268,14 +273,6 @@ input.field {
   position: relative;
   flex-shrink: 0;
 }
-
-.switch input {
-  position: absolute;
-  opacity: 0;
-  width: 1px;
-  height: 1px;
-}
-
 .track {
   display: block;
   width: 44px;
@@ -301,19 +298,9 @@ label:hover .track {
   border-color: var(--accent);
 }
 
-.switch input:checked + .track {
-  background: var(--accent);
-  border-color: var(--accent-hi);
-  box-shadow: 0 0 10px rgba(59, 130, 246, 0.45);
-}
-
 .switch input:checked + .track::after {
   background: #fff;
   transform: translateX(20px);
-}
-
-.switch input:focus-visible + .track {
-  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.3);
 }
 
 /* Banner */
@@ -353,4 +340,16 @@ dialog {
 
 dialog::backdrop {
   background: rgba(0, 0, 0, 0.55);
+}
+
+dialog .buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+dialog .error {
+  color: var(--danger);
+  margin: 10px 0 0;
 }

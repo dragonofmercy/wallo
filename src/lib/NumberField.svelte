@@ -1,5 +1,5 @@
 <script lang="ts">
-  let { value = $bindable(), label, unit = "", min, max, step = 1, decimals = 0, disabled = false }: { value: number; label: string; unit?: string; min: number; max: number; step?: number; decimals?: number; disabled?: boolean } = $props();
+  let { value = $bindable(), label, unit = "", min, max, decimals = 0, disabled = false }: { value: number; label: string; unit?: string; min: number; max: number; decimals?: number; disabled?: boolean } = $props();
 
   const clamp = (v: number) => Math.min(max, Math.max(min, v));
   const current = () => (Number.isFinite(value) ? value : 0);
@@ -54,10 +54,10 @@
   />
   {#if unit}<span class="unit">{unit}</span>{/if}
   <div class="step">
-    <button type="button" tabindex="-1" aria-label="Increase {label}" {disabled} onclick={() => (value = clamp(current() + step))}>
+    <button type="button" tabindex="-1" aria-label="Increase {label}" {disabled} onclick={() => (value = clamp(current() + 1))}>
       <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 6.5l3-3 3 3" /></svg>
     </button>
-    <button type="button" tabindex="-1" aria-label="Decrease {label}" {disabled} onclick={() => (value = clamp(current() - step))}>
+    <button type="button" tabindex="-1" aria-label="Decrease {label}" {disabled} onclick={() => (value = clamp(current() - 1))}>
       <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 3.5l3 3 3-3" /></svg>
     </button>
   </div>
@@ -108,7 +108,7 @@
     cursor: pointer;
   }
   .step button:hover:not(:disabled) {
-    background: rgba(59, 130, 246, 0.18);
+    background: rgba(var(--accent-rgb), 0.18);
     color: #fff;
   }
   .step button + button {

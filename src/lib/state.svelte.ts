@@ -1,6 +1,6 @@
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { alignOffset, applyProfiles, getCheckUpdates, listMonitors, loadProfiles } from "./api";
-import { defaultSource, type Monitor, type Preview, type Profile, type Source } from "./types";
+import { defaultSource, monitorBounds, type Monitor, type Preview, type Profile, type Source } from "./types";
 
 class AppState {
   profiles = $state<Profile[]>([]);
@@ -12,6 +12,11 @@ class AppState {
   busy = $state(false);
   optionsOpen = $state(false);
   update = $state<Update | null>(null);
+
+  /** Shows `e` in the error banner. */
+  fail(e: unknown, prefix = "") {
+    this.banner = { kind: "error", text: prefix + String(e) };
+  }
 
   get profile(): Profile {
     return this.profiles.find((p) => p.name === this.selectedName) ?? this.profiles[0];
@@ -58,20 +63,19 @@ class AppState {
   }
 
   newProfile(name: string) {
-    const p: Profile = { name: name.trim(), mode: "perMonitor", shared: defaultSource(), monitors: {} };
+    const p: Profile = { name, mode: "perMonitor", shared: defaultSource(), monitors: {} };
     this.fillMonitors(p);
     this.profiles.push(p);
     this.selectedName = p.name;
   }
 
   rename(name: string) {
-    this.profile.name = name.trim();
-    this.selectedName = name.trim();
+    this.profile.name = this.selectedName = name;
   }
 
   saveAs(name: string) {
     const copy = $state.snapshot(this.profile) as Profile;
-    copy.name = name.trim();
+    copy.name = name;
     this.profiles.push(copy);
     this.selectedName = copy.name;
   }
@@ -87,12 +91,11 @@ class AppState {
   async align(ax: number, ay: number) {
     const src = this.source;
     const ms = this.profile.mode === "span" ? this.monitors : this.monitors.filter((m) => m.id === this.selectedMonitorId);
-    const w = Math.max(...ms.map((m) => m.x + m.width)) - Math.min(...ms.map((m) => m.x));
-    const h = Math.max(...ms.map((m) => m.y + m.height)) - Math.min(...ms.map((m) => m.y));
+    const { w, h } = monitorBounds(ms);
     try {
       [src.offsetX, src.offsetY] = await alignOffset(src, [w, h], [ax, ay]);
     } catch (e) {
-      this.banner = { kind: "error", text: String(e) };
+      this.fail(e);
     }
   }
 
@@ -104,7 +107,7 @@ class AppState {
       await applyProfiles({ lastSelected: this.selectedName, profiles: $state.snapshot(this.profiles) as Profile[] });
       return true;
     } catch (e) {
-      this.banner = { kind: "error", text: String(e) };
+      this.fail(e);
       return false;
     } finally {
       this.busy = false;

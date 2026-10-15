@@ -49,7 +49,7 @@
     stroke: var(--cyan);
     stroke-linecap: round;
     stroke-dasharray: 50 170;
-    filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.6));
+    filter: drop-shadow(0 0 4px rgba(var(--cyan-rgb), 0.6));
   }
   .title {
     font:

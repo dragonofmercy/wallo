@@ -112,10 +112,10 @@
     text-align: left;
   }
   ul button:hover {
-    background: rgba(59, 130, 246, 0.16);
+    background: rgba(var(--accent-rgb), 0.16);
   }
   ul button.active {
-    background: rgba(59, 130, 246, 0.24);
+    background: rgba(var(--accent-rgb), 0.24);
     color: #fff;
   }
 </style>

@@ -24,11 +24,6 @@
     width: 360px;
   }
   p {
-    margin: 0 0 18px;
-  }
-  .buttons {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
+    margin: 0;
   }
 </style>

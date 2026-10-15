@@ -10,34 +10,25 @@
   onMount(() => dialog.showModal());
 
   // Not profile settings: applied immediately, read back from the backend.
-  let autostart = $state(false);
-  let keep = $state(false);
-  let checkUpdates = $state(true);
+  const options = $state([
+    { title: "Start with Windows", desc: "Wallo starts in the tray when you sign in, without opening the window.", get: getAutostart, set: setAutostart, on: false },
+    { title: "Keep wallpaper applied", desc: "Reapplies the active profile when monitors change or another program changes the wallpaper.", get: getKeepWallpaper, set: setKeepWallpaper, on: false },
+    { title: "Check for updates automatically", desc: "Looks for a new Wallo version each time the window opens.", get: getCheckUpdates, set: setCheckUpdates, on: true, enabled: () => app.checkUpdate() },
+  ]);
   let error = $state("");
-  getAutostart().then(
-    (v) => (autostart = v),
-    () => {},
-  );
-  getKeepWallpaper().then(
-    (v) => (keep = v),
-    () => {},
-  );
-  getCheckUpdates().then(
-    (v) => (checkUpdates = v),
-    () => {},
-  );
+  for (const o of options)
+    o.get().then(
+      (v) => (o.on = v),
+      () => {},
+    );
 
-  function checkUpdatesSaved(enabled: boolean) {
-    checkUpdates = enabled;
-    if (enabled) app.checkUpdate();
-  }
-
-  async function toggle(e: Event, save: (enabled: boolean) => Promise<void>, saved: (enabled: boolean) => void) {
+  async function toggle(e: Event, o: (typeof options)[number]) {
     const input = e.currentTarget as HTMLInputElement;
     error = "";
     try {
-      await save(input.checked);
-      saved(input.checked);
+      await o.set(input.checked);
+      o.on = input.checked;
+      if (o.on) o.enabled?.();
     } catch (err) {
       input.checked = !input.checked;
       error = String(err);
@@ -47,18 +38,12 @@
 
 <dialog bind:this={dialog} oncancel={(e) => (e.preventDefault(), onclose())}>
   <h2>Options</h2>
-  <label class="option">
-    <span class="text"><strong>Start with Windows</strong><span>Wallo starts in the tray when you sign in, without opening the window.</span></span>
-    <span class="switch"><input type="checkbox" role="switch" checked={autostart} onchange={(e) => toggle(e, setAutostart, (v) => (autostart = v))} /><span class="track"></span></span>
-  </label>
-  <label class="option">
-    <span class="text"><strong>Keep wallpaper applied</strong><span>Reapplies the active profile when monitors change or another program changes the wallpaper.</span></span>
-    <span class="switch"><input type="checkbox" role="switch" checked={keep} onchange={(e) => toggle(e, setKeepWallpaper, (v) => (keep = v))} /><span class="track"></span></span>
-  </label>
-  <label class="option">
-    <span class="text"><strong>Check for updates automatically</strong><span>Looks for a new Wallo version each time the window opens.</span></span>
-    <span class="switch"><input type="checkbox" role="switch" checked={checkUpdates} onchange={(e) => toggle(e, setCheckUpdates, checkUpdatesSaved)} /><span class="track"></span></span>
-  </label>
+  {#each options as o (o.title)}
+    <label class="option">
+      <span class="text"><strong>{o.title}</strong><span>{o.desc}</span></span>
+      <span class="switch"><input type="checkbox" role="switch" checked={o.on} onchange={(e) => toggle(e, o)} /><span class="track"></span></span>
+    </label>
+  {/each}
   {#if error}<p class="error selectable">{error}</p>{/if}
   <div class="buttons">
     <button type="button" class="btn ghost" onclick={onclose}>Close</button>
@@ -87,14 +72,5 @@
   }
   .text span {
     color: var(--muted);
-  }
-  .error {
-    color: var(--danger);
-    margin: 10px 0 0;
-  }
-  .buttons {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 18px;
   }
 </style>

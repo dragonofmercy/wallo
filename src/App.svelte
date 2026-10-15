@@ -20,13 +20,13 @@
       app.checkUpdate();
       ready = true;
     } catch (e) {
-      app.banner = { kind: "error", text: String(e) };
+      app.fail(e);
     }
   });
 
   onMount(() => {
     // The tray applied a profile: drop unsaved edits so a later Apply cannot revert it.
-    const unlisten = listen("profiles-changed", () => app.init().catch((e) => (app.banner = { kind: "error", text: String(e) })));
+    const unlisten = listen("profiles-changed", () => app.init().catch((e) => app.fail(e)));
     // Tray "Options": the flag covers a window created by the click, the event an already open one.
     const openOptions = () =>
       takeOpenOptions().then(
