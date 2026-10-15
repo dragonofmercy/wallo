@@ -1,4 +1,4 @@
-use crate::commands::{self, ApplyLock};
+use crate::commands;
 use crate::profile::{self, Profiles};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem};
@@ -101,23 +101,13 @@ pub fn show_window(app: &AppHandle) {
 fn apply_from_tray(app: &AppHandle, name: String) {
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        let lock = app.state::<ApplyLock>().0.clone();
         // Busy: ignore the click. Either way the menu is rebuilt, Windows toggled the clicked check mark itself.
-        if let Some(_guard) = commands::lock_apply(&lock) {
-            let loaded = profile::load(&commands::profiles_path());
-            let result = if let Some(warning) = loaded.warning {
-                // Corrupt file was just moved to .bak: applying would save defaults over it.
-                Err(warning)
-            } else {
-                let mut profiles = loaded.profiles;
-                profiles.last_selected = Some(name);
-                commands::apply_now(&profiles).map_err(String::from)
-            };
-            match result {
+        if let Some(_guard) = commands::lock_apply(&commands::APPLY_LOCK) {
+            match commands::apply_saved(Some(name)) {
                 Ok(()) => {
                     let _ = app.emit("profiles-changed", ());
                 }
-                Err(e) => error(&app, e),
+                Err(e) => error(&app, e.into()),
             }
         }
         refresh_menu(&app);

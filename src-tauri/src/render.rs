@@ -1,13 +1,15 @@
 use crate::monitors::Monitor;
 use crate::profile::{Mode, Profile, Sizing, Source};
 use image::imageops::{self, FilterType};
-use image::{Rgba, RgbaImage};
+use image::{GenericImageView, Rgba, RgbaImage};
 use imageproc::geometric_transformations::{warp_into, Interpolation, Projection};
+use std::borrow::Cow;
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
 /// Scale factors (x, y) that fit an `iw x ih` image into an `aw x ah` area for the given sizing mode.
-pub fn placement(sizing: Sizing, no_upscale: bool, iw: u32, ih: u32, aw: u32, ah: u32) -> (f64, f64) {
+fn placement(sizing: Sizing, no_upscale: bool, iw: u32, ih: u32, aw: u32, ah: u32) -> (f64, f64) {
     let (rx, ry) = (aw as f64 / iw as f64, ah as f64 / ih as f64);
     let (sx, sy) = match sizing {
         Sizing::Center | Sizing::Tile => return (1.0, 1.0),
@@ -24,16 +26,16 @@ pub fn placement(sizing: Sizing, no_upscale: bool, iw: u32, ih: u32, aw: u32, ah
     }
 }
 
-pub const BLACK: Rgba<u8> = Rgba([0, 0, 0, 255]);
+const BLACK: Rgba<u8> = Rgba([0, 0, 0, 255]);
 const CLEAR: Rgba<u8> = Rgba([0, 0, 0, 0]);
 
 /// `v * k` rounded, never 0.
-pub fn scaled(v: u32, k: f64) -> u32 {
+fn scaled(v: u32, k: f64) -> u32 {
     ((v as f64 * k).round() as u32).max(1)
 }
 
 /// Renders `src` into an area of `area` screen pixels, output scaled by `k`.
-pub fn render_area(img: &RgbaImage, native: (u32, u32), src: &Source, area: (u32, u32), k: f64, filter: FilterType) -> RgbaImage {
+fn render_area(img: &RgbaImage, native: (u32, u32), src: &Source, area: (u32, u32), k: f64, filter: FilterType) -> RgbaImage {
     let (cw, ch) = (scaled(area.0, k), scaled(area.1, k));
     let mut canvas = RgbaImage::from_pixel(cw, ch, BLACK);
     let (sx, sy) = placement(src.sizing, src.no_upscale, native.0, native.1, area.0, area.1);
@@ -41,12 +43,13 @@ pub fn render_area(img: &RgbaImage, native: (u32, u32), src: &Source, area: (u32
     let (lw, lh) = (native.0 as f64 * sx * s * k, native.1 as f64 * sy * s * k);
     let (ox, oy) = (src.offset_x as f64 * k, src.offset_y as f64 * k);
 
-    let mut source = img.clone();
+    // Copied only when flipped.
+    let mut source = Cow::Borrowed(img);
     if src.flip_h {
-        imageops::flip_horizontal_in_place(&mut source);
+        imageops::flip_horizontal_in_place(source.to_mut());
     }
     if src.flip_v {
-        imageops::flip_vertical_in_place(&mut source);
+        imageops::flip_vertical_in_place(source.to_mut());
     }
 
     if src.sizing == Sizing::Tile {
@@ -87,6 +90,14 @@ pub fn align_offset(src: &Source, native: (u32, u32), area: (u32, u32), anchor: 
     (ox.round() as i32, oy.round() as i32)
 }
 
+/// Bounding box `(x0, y0, x1, y1)` of `pts` rotated clockwise by `theta` radians around `c`.
+fn rotated_bbox(pts: [(f64, f64); 4], c: (f64, f64), theta: f64) -> (f64, f64, f64, f64) {
+    let (sin, cos) = theta.sin_cos();
+    pts.iter()
+        .map(|&(x, y)| (c.0 + (x - c.0) * cos - (y - c.1) * sin, c.1 + (x - c.0) * sin + (y - c.1) * cos))
+        .fold((f64::MAX, f64::MAX, f64::MIN, f64::MIN), |r, (x, y)| (r.0.min(x), r.1.min(y), r.2.max(x), r.3.max(y)))
+}
+
 /// Draws the part of the layer `(lx, ly, lw, lh)` (canvas coordinates, before rotation) that intersects `region` `(x0, y0, x1, y1)`,
 /// rotated clockwise by `theta` radians around the layer center. Only the matching source pixels are read, so cost stays bounded by the canvas.
 /// Downscales resize the crop; upscales warp it bilinearly (the resized piece would otherwise be unbounded).
@@ -101,14 +112,12 @@ fn draw_visible(canvas: &mut RgbaImage, source: &RgbaImage, layer: (f64, f64, f6
     if sx1 <= sx0 || sy1 <= sy0 {
         return;
     }
-    let crop = imageops::crop_imm(source, sx0, sy0, sx1 - sx0, sy1 - sy0).to_image();
+    let crop = imageops::crop_imm(source, sx0, sy0, sx1 - sx0, sy1 - sy0);
     let (px, py) = (lx + sx0 as f64 * fx, ly + sy0 as f64 * fy);
     let (cx, cy) = (lx + lw / 2.0, ly + lh / 2.0);
     // Warp only into the canvas part the rotated piece can reach (with room for the padding spill), not a full-canvas buffer per call.
-    let (sin, cos) = theta.sin_cos();
     let (qw, qh, m) = ((sx1 - sx0) as f64 * fx, (sy1 - sy0) as f64 * fy, fx.max(fy).max(1.0) / 2.0 + 2.0);
-    let corners = [(px - m, py - m), (px + qw + m, py - m), (px - m, py + qh + m), (px + qw + m, py + qh + m)].map(|(x, y)| (cx + (x - cx) * cos - (y - cy) * sin, cy + (x - cx) * sin + (y - cy) * cos));
-    let bbox = corners.iter().fold((f64::MAX, f64::MAX, f64::MIN, f64::MIN), |r, &(x, y)| (r.0.min(x), r.1.min(y), r.2.max(x), r.3.max(y)));
+    let bbox = rotated_bbox([(px - m, py - m), (px + qw + m, py - m), (px - m, py + qh + m), (px + qw + m, py + qh + m)], (cx, cy), theta);
     let (cw, ch) = canvas.dimensions();
     let (bx0, by0) = (bbox.0.floor().clamp(0.0, cw as f64) as u32, bbox.1.floor().clamp(0.0, ch as f64) as u32);
     let (bx1, by1) = (bbox.2.ceil().clamp(0.0, cw as f64) as u32, bbox.3.ceil().clamp(0.0, ch as f64) as u32);
@@ -118,8 +127,8 @@ fn draw_visible(canvas: &mut RgbaImage, source: &RgbaImage, layer: (f64, f64, f6
     let rotation = Projection::translate(cx as f32 - bx0 as f32, cy as f32 - by0 as f32) * Projection::rotate(theta as f32) * Projection::translate(-cx as f32, -cy as f32);
     let blank = || RgbaImage::from_pixel(bx1 - bx0, by1 - by0, CLEAR);
     let layer_px = if fx <= 1.0 && fy <= 1.0 {
-        let (pw, ph) = ((((sx1 - sx0) as f64 * fx).round() as u32).max(1), (((sy1 - sy0) as f64 * fy).round() as u32).max(1));
-        let piece = if (pw, ph) == crop.dimensions() { crop } else { imageops::resize(&crop, pw, ph, filter) };
+        let (pw, ph) = (scaled(sx1 - sx0, fx), scaled(sy1 - sy0, fy));
+        let piece = if (pw, ph) == crop.dimensions() { crop.to_image() } else { imageops::resize(&*crop, pw, ph, filter) };
         if theta == 0.0 {
             imageops::overlay(canvas, &piece, px.round() as i64, py.round() as i64);
             return;
@@ -131,7 +140,7 @@ fn draw_visible(canvas: &mut RgbaImage, source: &RgbaImage, layer: (f64, f64, f6
     } else {
         // One replicated edge pixel on each side so bilinear sampling is valid up to the crop edges (it needs right < width).
         let (w, h) = crop.dimensions();
-        let padded = RgbaImage::from_fn(w + 2, h + 2, |x, y| *crop.get_pixel(x.saturating_sub(1).min(w - 1), y.saturating_sub(1).min(h - 1)));
+        let padded = RgbaImage::from_fn(w + 2, h + 2, |x, y| crop.get_pixel(x.saturating_sub(1).min(w - 1), y.saturating_sub(1).min(h - 1)));
         // Source pixel i is centered at layer offset (i + 0.5) * f; output pixel d is sampled at d (imageproc has no half-pixel shift).
         let projection = rotation * Projection::translate((px - fx / 2.0 - 0.5) as f32, (py - fy / 2.0 - 0.5) as f32) * Projection::scale(fx as f32, fy as f32);
         let mut layer_px = blank();
@@ -157,9 +166,7 @@ fn draw_rotated(canvas: &mut RgbaImage, source: &RgbaImage, layer: (f64, f64, f6
     let (lx, ly, lw, lh) = layer;
     let (cx, cy) = (lx + lw / 2.0, ly + lh / 2.0);
     // Canvas corners rotated back into the unrotated layer frame give the only region that can be visible.
-    let (sin, cos) = (-theta).sin_cos();
-    let corners = [(0.0, 0.0), (cw, 0.0), (0.0, ch), (cw, ch)].map(|(x, y)| (cx + (x - cx) * cos - (y - cy) * sin, cy + (x - cx) * sin + (y - cy) * cos));
-    let region = corners.iter().fold((f64::MAX, f64::MAX, f64::MIN, f64::MIN), |r, &(x, y)| (r.0.min(x), r.1.min(y), r.2.max(x), r.3.max(y)));
+    let region = rotated_bbox([(0.0, 0.0), (cw, 0.0), (0.0, ch), (cw, ch)], (cx, cy), -theta);
     draw_visible(canvas, source, layer, (region.0.floor(), region.1.floor(), region.2.ceil(), region.3.ceil()), theta, filter);
 }
 
@@ -187,8 +194,11 @@ fn draw_tiles(canvas: &mut RgbaImage, source: &RgbaImage, lw: f64, lh: f64, ox: 
     }
 }
 
-/// Loads an image: returns the decoded pixels (possibly downscaled) and the original size. Errors include the path.
-pub type Loader<'a> = dyn Fn(&Path) -> Result<(Arc<RgbaImage>, (u32, u32)), String> + 'a;
+/// Decoded pixels (possibly downscaled) and the original size.
+pub type Cached = (Arc<RgbaImage>, (u32, u32));
+
+/// Loads an image. Errors include the path.
+pub type Loader<'a> = dyn Fn(&Path) -> Result<Cached, String> + 'a;
 
 pub struct Rendered {
     pub id: String,
@@ -218,14 +228,22 @@ pub fn render_profile(profile: &Profile, monitors: &[Monitor], k: f64, filter: F
                 })
                 .collect()
         }
-        Mode::Same | Mode::PerMonitor => monitors
+        Mode::Same => {
+            // Same source and size give the same image: render each size once.
+            let mut done = HashMap::new();
+            monitors
+                .iter()
+                .map(|m| {
+                    let (image, error) = done.entry((m.width, m.height)).or_insert_with(|| render_source(&profile.shared, (m.width, m.height), k, filter, load)).clone();
+                    Rendered { id: m.id.clone(), image, error }
+                })
+                .collect()
+        }
+        Mode::PerMonitor => monitors
             .iter()
             .map(|m| {
                 let fallback = Source::default();
-                let src = match profile.mode {
-                    Mode::Same => &profile.shared,
-                    _ => profile.monitors.get(&m.id).unwrap_or(&fallback),
-                };
+                let src = profile.monitors.get(&m.id).unwrap_or(&fallback);
                 let (image, error) = render_source(src, (m.width, m.height), k, filter, load);
                 Rendered { id: m.id.clone(), image, error }
             })
@@ -485,8 +503,7 @@ mod tests {
         }
     }
 
-    #[allow(clippy::type_complexity)]
-    fn ok_loader(img: RgbaImage) -> impl Fn(&Path) -> Result<(Arc<RgbaImage>, (u32, u32)), String> {
+    fn ok_loader(img: RgbaImage) -> impl Fn(&Path) -> Result<Cached, String> {
         let dims = img.dimensions();
         let img = Arc::new(img);
         move |_| Ok((img.clone(), dims))
@@ -550,7 +567,7 @@ mod tests {
             shared: with_image("gone.png", Sizing::Center),
             ..Profile::default()
         };
-        let fail = |p: &Path| -> Result<(Arc<RgbaImage>, (u32, u32)), String> { Err(format!("{}: not found", p.display())) };
+        let fail = |p: &Path| -> Result<Cached, String> { Err(format!("{}: not found", p.display())) };
         let out = render_profile(&profile, &[mon("a", 0, 0, 4, 2)], 1.0, FilterType::Nearest, &fail);
         assert!(out[0].image.pixels().all(|p| *p == BLACK));
         assert_eq!(out[0].error.as_deref(), Some("gone.png: not found"));

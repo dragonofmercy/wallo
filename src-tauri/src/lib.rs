@@ -27,8 +27,6 @@ pub fn run() {
         // Fixed-size window: only the position is remembered.
         .plugin(tauri_plugin_window_state::Builder::new().with_state_flags(StateFlags::POSITION).build())
         .manage(commands::ImageCache::default())
-        .manage(commands::SaveBlocked::default())
-        .manage(commands::ApplyLock::default())
         .setup(move |app| {
             tray::create(app.handle())?;
             watcher::start(app.handle());

@@ -1,12 +1,12 @@
-use crate::commands::{self, ApplyError, ApplyLock};
+use crate::commands::{self, ApplyError};
 use crate::monitors::{self, Monitor};
-use crate::{profile, settings, wallpaper};
+use crate::{settings, wallpaper};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::thread::Thread;
 use std::time::Duration;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 const INTERVAL: Duration = Duration::from_secs(10);
 /// Lets network drives mount before the first check at login.
@@ -69,9 +69,8 @@ fn adopt(monitors: &[Monitor], current: &[Option<PathBuf>], dir: &Path, exists: 
 }
 
 /// One check. Busy apply lock, unlisted monitors or no monitor (display sleep): skip until the next tick.
-fn tick(app: &AppHandle) -> Result<(), String> {
-    let lock = app.state::<ApplyLock>().0.clone();
-    let Some(_guard) = commands::lock_apply(&lock) else { return Ok(()) };
+fn tick() -> Result<(), String> {
+    let Some(_guard) = commands::lock_apply(&commands::APPLY_LOCK) else { return Ok(()) };
     let Ok(monitors) = monitors::list() else { return Ok(()) };
     if monitors.is_empty() {
         return Ok(());
@@ -79,7 +78,7 @@ fn tick(app: &AppHandle) -> Result<(), String> {
     let mut last = LAST.lock().unwrap_or_else(|e| e.into_inner()).clone();
     if last.is_none() {
         let shown = wallpaper::current(&monitors.iter().map(|m| m.id.clone()).collect::<Vec<_>>())?;
-        if let Some(a) = adopt(&monitors, &shown, &commands::data_dir().join("rendered"), Path::exists) {
+        if let Some(a) = adopt(&monitors, &shown, &commands::rendered_dir(), Path::exists) {
             record(a.monitors.clone(), a.files.clone());
             last = Some(a);
         }
@@ -100,12 +99,7 @@ fn tick(app: &AppHandle) -> Result<(), String> {
             if !commands::profiles_path().exists() {
                 return Ok(());
             }
-            let loaded = profile::load(&commands::profiles_path());
-            // Corrupt or unreadable file: applying would save defaults over it.
-            if let Some(warning) = loaded.warning {
-                return Err(warning);
-            }
-            match commands::apply_now(&loaded.profiles) {
+            match commands::apply_saved(None) {
                 // Source missing (e.g. network drive not mounted): keep what is on screen, no dialog, no retry until the next apply.
                 Err(ApplyError::Source(_)) => {
                     PAUSED.store(true, Ordering::SeqCst);
@@ -125,13 +119,18 @@ pub fn start(app: &AppHandle) {
         std::thread::park_timeout(FIRST_DELAY);
         loop {
             if ENABLED.load(Ordering::SeqCst) && !PAUSED.load(Ordering::SeqCst) {
-                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| tick(&app))).unwrap_or_else(|_| Err("unexpected error".to_string()));
+                let result = std::panic::catch_unwind(tick).unwrap_or_else(|_| Err("unexpected error".to_string()));
                 if let Err(e) = result {
                     PAUSED.store(true, Ordering::SeqCst);
                     crate::tray::error(&app, format!("Keep wallpaper paused: {e}"));
                 }
             }
-            std::thread::park_timeout(INTERVAL);
+            // Disabled: sleep until set_enabled wakes us.
+            if ENABLED.load(Ordering::SeqCst) {
+                std::thread::park_timeout(INTERVAL);
+            } else {
+                std::thread::park();
+            }
         }
     });
     let _ = THREAD.set(handle.thread().clone());

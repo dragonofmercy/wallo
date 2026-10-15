@@ -1,6 +1,7 @@
 use crate::monitors::desktop_wallpaper;
+use crate::render::Rendered;
 use image::buffer::ConvertBuffer;
-use image::{RgbImage, RgbaImage};
+use image::RgbImage;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -12,15 +13,12 @@ use windows::Win32::UI::WindowsAndMessaging::{FindWindowW, SendMessageTimeoutW, 
 
 /// Writes one PNG per monitor (unique names, Windows caches wallpapers by path), sets them, then removes older files.
 /// All-or-nothing: on failure the files written here are deleted and the previous wallpapers and position restored.
-/// Returns the written paths, in `images` order.
-pub fn apply(dir: &Path, images: Vec<(String, RgbaImage)>) -> Result<Vec<PathBuf>, String> {
-    if images.is_empty() {
-        return Err("No monitor detected".into());
-    }
+/// Returns (monitor id, written path), in `images` order.
+pub fn apply(dir: &Path, images: &[Rendered]) -> Result<Vec<(String, PathBuf)>, String> {
     fs::create_dir_all(dir).map_err(|e| format!("Cannot create {}: {e}", dir.display()))?;
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or_default();
     let mut written: Vec<PathBuf> = Vec::new();
-    for (i, (_, image)) in images.iter().enumerate() {
+    for (i, Rendered { image, .. }) in images.iter().enumerate() {
         let path = dir.join(format!("{stamp}-{i}.png"));
         let rgb: RgbImage = image.convert();
         if let Err(e) = rgb.save(&path) {
@@ -31,7 +29,7 @@ pub fn apply(dir: &Path, images: Vec<(String, RgbaImage)>) -> Result<Vec<PathBuf
         }
         written.push(path);
     }
-    let ids: Vec<String> = images.iter().map(|(id, _)| id.clone()).collect();
+    let ids: Vec<String> = images.iter().map(|r| r.id.clone()).collect();
     if let Err(e) = set(&ids, &written) {
         remove(&written);
         return Err(e);
@@ -44,7 +42,7 @@ pub fn apply(dir: &Path, images: Vec<(String, RgbaImage)>) -> Result<Vec<PathBuf
             }
         }
     }
-    Ok(written)
+    Ok(ids.into_iter().zip(written).collect())
 }
 
 /// Current wallpaper of a monitor; None when unset or unreadable.
